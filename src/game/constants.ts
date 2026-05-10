@@ -1,0 +1,9 @@
+export const CELL_SIZE = 32;
+export const MAZE_COLS = 20;
+export const MAZE_ROWS = 15;
+export const HUD_HEIGHT = 80;
+export const CANVAS_WIDTH = 640;
+export const CANVAS_HEIGHT = 560;
+export const PROTAGONIST_SPEED = 2;
+export const GHOST_SPEED_FACTOR = 0.85;
+export const PELLET_VALUE = 10;

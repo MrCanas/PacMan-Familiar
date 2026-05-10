@@ -1,4 +1,4 @@
-﻿{
+{
   "root": true,
   "env": {
     "browser": true,
@@ -10,7 +10,36 @@
     "sourceType": "module",
     "project": "./tsconfig.json"
   },
-  "plugins": ["@typescript-eslint"],
-  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
-  "ignorePatterns": ["dist", "node_modules"]
+  "plugins": [
+    "@typescript-eslint"
+  ],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "ignorePatterns": [
+    "dist",
+    "node_modules"
+  ],
+  "overrides": [
+    {
+      "files": [
+        "**/*.test.ts"
+      ],
+      "parserOptions": {
+        "project": "./tsconfig.json"
+      },
+      "globals": {
+        "describe": "readonly",
+        "it": "readonly",
+        "expect": "readonly",
+        "beforeEach": "readonly",
+        "afterEach": "readonly",
+        "vi": "readonly"
+      },
+      "rules": {
+        "@typescript-eslint/no-non-null-assertion": "off"
+      }
+    }
+  ]
 }
