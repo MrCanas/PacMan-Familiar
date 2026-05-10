@@ -19,9 +19,18 @@ body {
   justify-content: center;
   min-height: 100vh;
   background: #0f172a;
+  padding: 12px;
+}
+
+.canvas-wrap {
+  width: min(100%, 640px);
 }
 
 #game {
   display: block;
-  background: #1e293b;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 640 / 560;
+  background: #020617;
+  touch-action: manipulation;
 }
