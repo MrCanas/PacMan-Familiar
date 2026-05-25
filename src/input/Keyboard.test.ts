@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { Keyboard } from '@/input/Keyboard';
 
@@ -15,14 +15,16 @@ describe('Keyboard', () => {
     expect(kb.getDesiredDirection()).toBe('right');
   });
 
-  it('listener keydown con code Arrow*', () => {
+  it('usa window.addEventListener sin duplicar', () => {
+    const addSpy = vi.spyOn(window, 'addEventListener');
+    const removeSpy = vi.spyOn(window, 'removeEventListener');
     const kb = new Keyboard();
-    const target = document.createElement('div');
-    kb.attach(target);
-    target.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'ArrowLeft', code: 'ArrowLeft', bubbles: true })
-    );
-    expect(kb.getDesiredDirection()).toBe('left');
-    kb.detach(target);
+    kb.attach();
+    kb.attach();
+    expect(addSpy).toHaveBeenCalledTimes(1);
+    kb.detach();
+    expect(removeSpy).toHaveBeenCalledTimes(1);
+    addSpy.mockRestore();
+    removeSpy.mockRestore();
   });
 });

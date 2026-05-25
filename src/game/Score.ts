@@ -9,6 +9,10 @@ export class Score {
     return this.value;
   }
 
+  set(value: number): void {
+    this.value = value;
+  }
+
   reset(): void {
     this.value = 0;
   }

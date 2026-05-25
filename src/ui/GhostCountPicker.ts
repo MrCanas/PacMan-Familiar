@@ -11,16 +11,16 @@ export function isCharacterActiveAsGhost(index: number, ghostCount: number): boo
   return index < ghostCount;
 }
 
+export function isStartButtonEnabled(ghostCount: number | null): boolean {
+  if (ghostCount === null) return false;
+  return ghostCount >= 1 && ghostCount <= 4;
+}
+
 const DIFFICULTY_OPTIONS: { id: Difficulty; label: string }[] = [
   { id: 'easy', label: 'Fácil' },
   { id: 'medium', label: 'Medio' },
   { id: 'hard', label: 'Difícil' },
 ];
-
-export function isStartButtonEnabled(ghostCount: number | null): boolean {
-  if (ghostCount === null) return false;
-  return ghostCount >= 1 && ghostCount <= 4;
-}
 
 export class GhostCountPicker {
   private ghostCount: number | null = null;
@@ -59,6 +59,7 @@ export class GhostCountPicker {
       w,
       h,
     }));
+
     const diffY = 168;
     const diffW = 120;
     const diffH = 36;
@@ -72,6 +73,7 @@ export class GhostCountPicker {
       w: diffW,
       h: diffH,
     }));
+
     this.backButton = { x: 32, y: CANVAS_HEIGHT - 60, w: 140, h: 44 };
     this.startButton = {
       x: CANVAS_WIDTH - 32 - 200,

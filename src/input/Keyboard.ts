@@ -40,22 +40,31 @@ const keyToDir = (key: string): Direction | null => {
 
 export class Keyboard {
   private desired: Direction | null = null;
+  private attached = false;
 
-  private readonly onKeyDown = (e: Event): void => {
-    const ke = e as KeyboardEvent;
-    const dir = codeToDir(ke.code) ?? keyToDir(ke.key);
+  private readonly handleKeyDown = (e: KeyboardEvent): void => {
+    const dir = codeToDir(e.code) ?? keyToDir(e.key);
     if (dir) {
-      ke.preventDefault();
+      e.preventDefault();
       this.desired = dir;
     }
   };
 
-  attach(target: Window | Document | HTMLElement = document): void {
-    target.addEventListener('keydown', this.onKeyDown, { capture: true });
+  attach(): void {
+    if (this.attached) {
+      return;
+    }
+    window.addEventListener('keydown', this.handleKeyDown);
+    this.attached = true;
   }
 
-  detach(target: Window | Document | HTMLElement = document): void {
-    target.removeEventListener('keydown', this.onKeyDown, { capture: true });
+  detach(): void {
+    if (!this.attached) {
+      return;
+    }
+    window.removeEventListener('keydown', this.handleKeyDown);
+    this.attached = false;
+    this.desired = null;
   }
 
   getDesiredDirection(): Direction | null {

@@ -1,37 +1,31 @@
-import { PROTAGONIST_SPEED } from '@/game/constants';
-
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
 export const DEFAULT_DIFFICULTY: Difficulty = 'medium';
 
 export type DifficultySettings = {
-  ghostSpeed: number;
-  chaseProbability: number;
+  playerMoveInterval: number;
   ghostMoveInterval: number;
+  chaseProbability: number;
 };
 
 export const DIFFICULTY_SETTINGS: Record<Difficulty, DifficultySettings> = {
   easy: {
-    ghostSpeed: PROTAGONIST_SPEED * 0.65,
+    playerMoveInterval: 160,
+    ghostMoveInterval: 450,
     chaseProbability: 0.35,
-    ghostMoveInterval: 4,
   },
   medium: {
-    ghostSpeed: PROTAGONIST_SPEED * 0.85,
+    playerMoveInterval: 140,
+    ghostMoveInterval: 320,
     chaseProbability: 0.6,
-    ghostMoveInterval: 2,
   },
   hard: {
-    ghostSpeed: PROTAGONIST_SPEED * 1.05,
+    playerMoveInterval: 120,
+    ghostMoveInterval: 220,
     chaseProbability: 0.8,
-    ghostMoveInterval: 1,
   },
 };
 
 export function getDifficultySettings(difficulty: Difficulty): DifficultySettings {
   return DIFFICULTY_SETTINGS[difficulty];
-}
-
-export function isDifficulty(value: string): value is Difficulty {
-  return value === 'easy' || value === 'medium' || value === 'hard';
 }

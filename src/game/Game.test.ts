@@ -83,6 +83,7 @@ describe('Game', () => {
     game.setGhostCount(2);
     game.startGame();
     expect(game.currentScreen).toBe('playing');
+    expect(game.playSession).not.toBeNull();
     expect(game.maze).not.toBeNull();
     expect(game.protagonist).not.toBeNull();
     expect(game.ghosts.length).toBe(2);
