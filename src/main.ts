@@ -32,6 +32,7 @@ async function bootstrap(): Promise<void> {
   });
 
   canvas.addEventListener('click', (e) => {
+    canvas.focus();
     game.handleCanvasClick(e.clientX, e.clientY);
   });
 

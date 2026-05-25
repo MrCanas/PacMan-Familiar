@@ -5,21 +5,23 @@ import {
   saveProtagonistId,
   updateHighScoreIfNeeded,
 } from '@/data/storage';
-import { Ghost } from '@/entities/Ghost';
-import { Protagonist } from '@/entities/Protagonist';
 import { Keyboard } from '@/input/Keyboard';
 import { CharacterPicker } from '@/ui/CharacterPicker';
 import { GameOverScreen } from '@/ui/GameOver';
 import { getGhostCandidates, GhostCountPicker } from '@/ui/GhostCountPicker';
 import { HUD } from '@/ui/HUD';
-import { checkProtagonistGhostCollision } from '@/game/Collision';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
-  GHOST_SPEED_FACTOR,
-  PROTAGONIST_SPEED,
 } from '@/game/constants';
-import { Maze } from '@/game/Maze';
+import {
+  DEFAULT_DIFFICULTY,
+  getDifficultySettings,
+  type Difficulty,
+} from '@/game/difficulty';
+import type { GridMap } from '@/game/GridMap';
+import { PlaySession, type GhostEntity, type PlayerEntity } from '@/game/PlaySession';
+import { drawCharacterFace } from '@/game/renderEntity';
 import { Score } from '@/game/Score';
 
 export type GameScreen = 'pick-protagonist' | 'pick-ghost-count' | 'playing' | 'game-over';
@@ -28,13 +30,12 @@ export class Game {
   currentScreen: GameScreen = 'pick-protagonist';
   protagonistId: string | null = null;
   ghostCount: number | null = null;
+  currentDifficulty: Difficulty = DEFAULT_DIFFICULTY;
 
   gameOverReason: 'won' | 'caught' | null = null;
   caughtGhostId: string | null = null;
 
-  maze: Maze | null = null;
-  protagonist: Protagonist | null = null;
-  ghosts: Ghost[] = [];
+  playSession: PlaySession | null = null;
 
   readonly score = new Score();
   highScore = 0;
@@ -47,6 +48,8 @@ export class Game {
   readonly ghostPicker: GhostCountPicker;
 
   private rafId: number | null = null;
+  private playerIntervalId: ReturnType<typeof setInterval> | null = null;
+  private ghostIntervalId: ReturnType<typeof setInterval> | null = null;
   private readonly images = new Map<string, HTMLImageElement>();
 
   constructor(
@@ -69,8 +72,9 @@ export class Game {
       () => {
         this.currentScreen = 'pick-protagonist';
       },
-      (n) => {
+      (n, difficulty) => {
         this.setGhostCount(n);
+        this.setDifficulty(difficulty);
         this.startGame();
       }
     );
@@ -85,8 +89,24 @@ export class Game {
     this.keyboard.attach();
   }
 
+  /** Compatibilidad con tests: laberinto activo. */
+  get maze(): GridMap | null {
+    return this.playSession?.gridMap ?? null;
+  }
+
+  /** Compatibilidad con tests: jugador activo. */
+  get protagonist(): PlayerEntity | null {
+    return this.playSession?.player ?? null;
+  }
+
+  /** Compatibilidad con tests: fantasmas activos. */
+  get ghosts(): GhostEntity[] {
+    return this.playSession?.ghosts ?? [];
+  }
+
   destroy(): void {
     this.stopLoop();
+    this.stopGameplayIntervals();
     this.keyboard.detach();
   }
 
@@ -108,49 +128,83 @@ export class Game {
     saveGhostCount(localStorage, n);
   }
 
+  setDifficulty(difficulty: Difficulty): void {
+    this.currentDifficulty = difficulty;
+  }
+
   startGame(): void {
     if (!this.protagonistId || this.ghostCount === null || this.ghostCount < 1 || this.ghostCount > 4) {
       throw new Error('Falta protagonista o cantidad de fantasmas válida');
     }
 
+    this.stopGameplayIntervals();
+
     this.gameOverReason = null;
     this.caughtGhostId = null;
     this.currentScreen = 'playing';
-
-    this.maze = new Maze();
     this.score.reset();
 
-    const { protagonist: pSpawn, ghosts: gSpawns } = this.maze.getSpawnPositions();
     const heroData = getCharacterById(this.protagonistId);
     const heroImg = this.getImage(this.protagonistId);
     if (!heroData || !heroImg) {
       throw new Error('Protagonista inválido');
     }
 
-    this.protagonist = new Protagonist(
-      heroData,
-      heroImg,
-      pSpawn.col,
-      pSpawn.row,
-      PROTAGONIST_SPEED,
-      (pts) => this.score.add(pts)
-    );
-
+    const settings = getDifficultySettings(this.currentDifficulty);
     const candidates = getGhostCandidates(this.protagonistId, CHARACTERS);
-    const n = this.ghostCount;
-    this.ghosts = [];
-    for (let i = 0; i < n; i++) {
+    const ghostEntries: { data: (typeof candidates)[0]; image: HTMLImageElement; col: number; row: number }[] = [];
+
+    for (let i = 0; i < this.ghostCount; i++) {
       const data = candidates[i % candidates.length]!;
       const img = this.getImage(data.id);
       if (!img) continue;
-      const spawn = gSpawns[i % gSpawns.length]!;
-      this.ghosts.push(
-        new Ghost(data, img, spawn.col, spawn.row, PROTAGONIST_SPEED * GHOST_SPEED_FACTOR, 'left')
-      );
+      ghostEntries.push({ data, image: img, col: 0, row: 0 });
+    }
+
+    this.playSession = PlaySession.create(heroData, heroImg, ghostEntries, settings);
+
+    this.playerIntervalId = setInterval(() => this.onPlayerTick(), settings.playerMoveInterval);
+    this.ghostIntervalId = setInterval(() => this.onGhostTick(), settings.ghostMoveInterval);
+  }
+
+  private onPlayerTick(): void {
+    if (this.currentScreen !== 'playing' || !this.playSession) {
+      return;
+    }
+
+    const dir = this.keyboard.getDesiredDirection();
+    this.playSession.setPlayerIntent(dir);
+    this.playSession.tickPlayer();
+    this.playSession.checkCollisionsAfterPlayer();
+    this.syncScoreFromSession();
+
+    if (this.playSession.status === 'won') {
+      this.endGame('won');
+    } else if (this.playSession.status === 'lost') {
+      this.endGame('caught', this.playSession.caughtGhostId ?? undefined);
     }
   }
 
+  private onGhostTick(): void {
+    if (this.currentScreen !== 'playing' || !this.playSession) {
+      return;
+    }
+
+    this.playSession.tickGhosts();
+    this.syncScoreFromSession();
+
+    if (this.playSession.status === 'lost') {
+      this.endGame('caught', this.playSession.caughtGhostId ?? undefined);
+    }
+  }
+
+  private syncScoreFromSession(): void {
+    if (!this.playSession) return;
+    this.score.set(this.playSession.score);
+  }
+
   endGame(reason: 'won' | 'caught', caughtGhostId?: string): void {
+    this.stopGameplayIntervals();
     this.gameOverReason = reason;
     this.caughtGhostId = caughtGhostId ?? null;
     this.currentScreen = 'game-over';
@@ -158,14 +212,13 @@ export class Game {
   }
 
   reset(): void {
+    this.stopGameplayIntervals();
     this.currentScreen = 'pick-protagonist';
     this.protagonistId = null;
     this.ghostCount = null;
     this.gameOverReason = null;
     this.caughtGhostId = null;
-    this.maze = null;
-    this.protagonist = null;
-    this.ghosts = [];
+    this.playSession = null;
     this.score.reset();
     this.characterPicker.reset();
     this.ghostPicker.resetSelection();
@@ -174,16 +227,23 @@ export class Game {
   }
 
   restartSameTeam(): void {
-    if (!this.protagonistId || this.ghostCount === null) {
-      this.startGame();
-      return;
-    }
     this.startGame();
+  }
+
+  private stopGameplayIntervals(): void {
+    if (this.playerIntervalId !== null) {
+      clearInterval(this.playerIntervalId);
+      this.playerIntervalId = null;
+    }
+    if (this.ghostIntervalId !== null) {
+      clearInterval(this.ghostIntervalId);
+      this.ghostIntervalId = null;
+    }
   }
 
   startLoop(): void {
     const loop = (): void => {
-      this.tick();
+      this.render();
       this.rafId = requestAnimationFrame(loop);
     };
     this.rafId = requestAnimationFrame(loop);
@@ -194,30 +254,6 @@ export class Game {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
     }
-  }
-
-  private tick(): void {
-    if (this.currentScreen === 'playing' && this.maze && this.protagonist) {
-      const dir = this.keyboard.getDesiredDirection();
-      if (dir) {
-        this.protagonist.applyDesiredDirection(dir);
-      }
-      this.protagonist.update(this.maze);
-      for (const g of this.ghosts) {
-        g.update(this.maze);
-      }
-
-      if (this.maze.pelletsRemaining() === 0) {
-        this.endGame('won');
-      } else {
-        const hit = checkProtagonistGhostCollision(this.protagonist, this.ghosts);
-        if (hit) {
-          this.endGame('caught', hit.data.id);
-        }
-      }
-    }
-
-    this.render();
   }
 
   render(): void {
@@ -235,18 +271,19 @@ export class Game {
       return;
     }
 
-    if (this.currentScreen === 'playing' && this.maze && this.protagonist) {
+    if (this.currentScreen === 'playing' && this.playSession) {
+      const session = this.playSession;
       this.hud.render(ctx, {
         score: this.score.get(),
         highScore: this.highScore,
         protagonistId: this.protagonistId!,
-        ghostIds: this.ghosts.map((g) => g.data.id),
+        ghostIds: session.ghosts.map((g) => g.data.id),
         getImage: (id) => this.getImage(id),
       });
-      this.maze.draw(ctx);
-      this.protagonist.draw(ctx);
-      for (const g of this.ghosts) {
-        g.draw(ctx);
+      session.gridMap.draw(ctx);
+      drawCharacterFace(ctx, session.player.image, session.player.col, session.player.row, session.player.data.accentColor);
+      for (const g of session.ghosts) {
+        drawCharacterFace(ctx, g.image, g.col, g.row, g.data.accentColor);
       }
       return;
     }

@@ -1,5 +1,20 @@
 import type { Direction } from '@/entities/direction';
 
+const codeToDir = (code: string): Direction | null => {
+  switch (code) {
+    case 'ArrowUp':
+      return 'up';
+    case 'ArrowDown':
+      return 'down';
+    case 'ArrowLeft':
+      return 'left';
+    case 'ArrowRight':
+      return 'right';
+    default:
+      return null;
+  }
+};
+
 const keyToDir = (key: string): Direction | null => {
   switch (key) {
     case 'ArrowUp':
@@ -25,22 +40,31 @@ const keyToDir = (key: string): Direction | null => {
 
 export class Keyboard {
   private desired: Direction | null = null;
+  private attached = false;
 
-  private readonly onKeyDown = (e: Event): void => {
-    const ke = e as KeyboardEvent;
-    const dir = keyToDir(ke.key);
+  private readonly handleKeyDown = (e: KeyboardEvent): void => {
+    const dir = codeToDir(e.code) ?? keyToDir(e.key);
     if (dir) {
-      ke.preventDefault();
+      e.preventDefault();
       this.desired = dir;
     }
   };
 
-  attach(target: Window | Document = window): void {
-    target.addEventListener('keydown', this.onKeyDown);
+  attach(): void {
+    if (this.attached) {
+      return;
+    }
+    window.addEventListener('keydown', this.handleKeyDown);
+    this.attached = true;
   }
 
-  detach(target: Window | Document = window): void {
-    target.removeEventListener('keydown', this.onKeyDown);
+  detach(): void {
+    if (!this.attached) {
+      return;
+    }
+    window.removeEventListener('keydown', this.handleKeyDown);
+    this.attached = false;
+    this.desired = null;
   }
 
   getDesiredDirection(): Direction | null {
@@ -49,6 +73,6 @@ export class Keyboard {
 
   /** Expuesto para tests: simula tecla sin listener. */
   simulateKey(key: string): void {
-    this.desired = keyToDir(key);
+    this.desired = codeToDir(key) ?? keyToDir(key);
   }
 }
