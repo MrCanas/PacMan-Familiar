@@ -16,9 +16,13 @@ import { checkProtagonistGhostCollision } from '@/game/Collision';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
-  GHOST_SPEED_FACTOR,
   PROTAGONIST_SPEED,
 } from '@/game/constants';
+import {
+  DEFAULT_DIFFICULTY,
+  getDifficultySettings,
+  type Difficulty,
+} from '@/game/difficulty';
 import { Maze } from '@/game/Maze';
 import { Score } from '@/game/Score';
 
@@ -28,6 +32,7 @@ export class Game {
   currentScreen: GameScreen = 'pick-protagonist';
   protagonistId: string | null = null;
   ghostCount: number | null = null;
+  currentDifficulty: Difficulty = DEFAULT_DIFFICULTY;
 
   gameOverReason: 'won' | 'caught' | null = null;
   caughtGhostId: string | null = null;
@@ -69,8 +74,9 @@ export class Game {
       () => {
         this.currentScreen = 'pick-protagonist';
       },
-      (n) => {
+      (n, difficulty) => {
         this.setGhostCount(n);
+        this.setDifficulty(difficulty);
         this.startGame();
       }
     );
@@ -108,6 +114,10 @@ export class Game {
     saveGhostCount(localStorage, n);
   }
 
+  setDifficulty(difficulty: Difficulty): void {
+    this.currentDifficulty = difficulty;
+  }
+
   startGame(): void {
     if (!this.protagonistId || this.ghostCount === null || this.ghostCount < 1 || this.ghostCount > 4) {
       throw new Error('Falta protagonista o cantidad de fantasmas válida');
@@ -116,9 +126,11 @@ export class Game {
     this.gameOverReason = null;
     this.caughtGhostId = null;
     this.currentScreen = 'playing';
+    this.canvas.focus();
 
     this.maze = new Maze();
     this.score.reset();
+    const diffSettings = getDifficultySettings(this.currentDifficulty);
 
     const { protagonist: pSpawn, ghosts: gSpawns } = this.maze.getSpawnPositions();
     const heroData = getCharacterById(this.protagonistId);
@@ -145,7 +157,10 @@ export class Game {
       if (!img) continue;
       const spawn = gSpawns[i % gSpawns.length]!;
       this.ghosts.push(
-        new Ghost(data, img, spawn.col, spawn.row, PROTAGONIST_SPEED * GHOST_SPEED_FACTOR, 'left')
+        new Ghost(data, img, spawn.col, spawn.row, diffSettings.ghostSpeed, 'left', {
+          chaseProbability: diffSettings.chaseProbability,
+          ghostMoveInterval: diffSettings.ghostMoveInterval,
+        })
       );
     }
   }
@@ -204,7 +219,7 @@ export class Game {
       }
       this.protagonist.update(this.maze);
       for (const g of this.ghosts) {
-        g.update(this.maze);
+        g.update(this.maze, this.protagonist);
       }
 
       if (this.maze.pelletsRemaining() === 0) {

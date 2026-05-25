@@ -1,6 +1,7 @@
 import type { CharacterData } from '@/data/characters';
 import { getCharacterById } from '@/data/characters';
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from '@/game/constants';
+import { DEFAULT_DIFFICULTY, type Difficulty } from '@/game/difficulty';
 
 export function getGhostCandidates(protagonistId: string, allCharacters: CharacterData[]): CharacterData[] {
   return allCharacters.filter((c) => c.id !== protagonistId);
@@ -10,6 +11,12 @@ export function isCharacterActiveAsGhost(index: number, ghostCount: number): boo
   return index < ghostCount;
 }
 
+const DIFFICULTY_OPTIONS: { id: Difficulty; label: string }[] = [
+  { id: 'easy', label: 'Fácil' },
+  { id: 'medium', label: 'Medio' },
+  { id: 'hard', label: 'Difícil' },
+];
+
 export function isStartButtonEnabled(ghostCount: number | null): boolean {
   if (ghostCount === null) return false;
   return ghostCount >= 1 && ghostCount <= 4;
@@ -17,7 +24,9 @@ export function isStartButtonEnabled(ghostCount: number | null): boolean {
 
 export class GhostCountPicker {
   private ghostCount: number | null = null;
+  private difficulty: Difficulty = DEFAULT_DIFFICULTY;
   private countButtons: { n: number; x: number; y: number; w: number; h: number }[] = [];
+  private difficultyButtons: { id: Difficulty; x: number; y: number; w: number; h: number }[] = [];
   private backButton = { x: 0, y: 0, w: 0, h: 0 };
   private startButton = { x: 0, y: 0, w: 0, h: 0, enabled: false };
 
@@ -25,11 +34,12 @@ export class GhostCountPicker {
     private readonly allCharacters: CharacterData[],
     private readonly getImage: (id: string) => HTMLImageElement | undefined,
     private readonly onBack: () => void,
-    private readonly onStart: (ghostCount: number) => void
+    private readonly onStart: (ghostCount: number, difficulty: Difficulty) => void
   ) {}
 
   resetSelection(): void {
     this.ghostCount = null;
+    this.difficulty = DEFAULT_DIFFICULTY;
   }
 
   restoreCount(n: number | null): void {
@@ -48,6 +58,19 @@ export class GhostCountPicker {
       y,
       w,
       h,
+    }));
+    const diffY = 168;
+    const diffW = 120;
+    const diffH = 36;
+    const diffGap = 10;
+    const diffTotal = DIFFICULTY_OPTIONS.length * diffW + (DIFFICULTY_OPTIONS.length - 1) * diffGap;
+    const diffStartX = CANVAS_WIDTH / 2 - diffTotal / 2;
+    this.difficultyButtons = DIFFICULTY_OPTIONS.map((opt, i) => ({
+      id: opt.id,
+      x: diffStartX + i * (diffW + diffGap),
+      y: diffY,
+      w: diffW,
+      h: diffH,
     }));
     this.backButton = { x: 32, y: CANVAS_HEIGHT - 60, w: 140, h: 44 };
     this.startButton = {
@@ -101,6 +124,24 @@ export class GhostCountPicker {
     ctx.textBaseline = 'top';
     ctx.fillText('¿Cuántos fantasmas?', CANVAS_WIDTH / 2, 100);
 
+    ctx.font = '600 14px system-ui, sans-serif';
+    ctx.fillText('Dificultad', CANVAS_WIDTH / 2, 152);
+    for (const b of this.difficultyButtons) {
+      const on = this.difficulty === b.id;
+      ctx.fillStyle = on ? '#22c55e' : '#334155';
+      ctx.beginPath();
+      ctx.roundRect(b.x, b.y, b.w, b.h, 8);
+      ctx.fill();
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '600 13px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const label = DIFFICULTY_OPTIONS.find((o) => o.id === b.id)?.label ?? b.id;
+      ctx.fillText(label, b.x + b.w / 2, b.y + b.h / 2);
+    }
+
+    ctx.font = 'bold 22px system-ui, sans-serif';
+    ctx.textBaseline = 'top';
     for (const b of this.countButtons) {
       const on = this.ghostCount === b.n;
       ctx.fillStyle = on ? '#38bdf8' : '#334155';
@@ -116,7 +157,7 @@ export class GhostCountPicker {
 
     const candidates = protagonistId ? getGhostCandidates(protagonistId, this.allCharacters) : [];
     const ghostN = this.ghostCount ?? 0;
-    const rowY = 220;
+    const rowY = 248;
     const slot = (CANVAS_WIDTH - 64) / candidates.length;
 
     candidates.forEach((ch, index) => {
@@ -175,6 +216,12 @@ export class GhostCountPicker {
   handleClick(x: number, y: number, protagonistId: string | null): void {
     if (!protagonistId) return;
     this.rebuildButtons();
+    for (const b of this.difficultyButtons) {
+      if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+        this.difficulty = b.id;
+        return;
+      }
+    }
     for (const b of this.countButtons) {
       if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
         this.ghostCount = b.n;
@@ -195,7 +242,7 @@ export class GhostCountPicker {
       y <= sb.y + sb.h &&
       this.ghostCount !== null
     ) {
-      this.onStart(this.ghostCount);
+      this.onStart(this.ghostCount, this.difficulty);
     }
   }
 }
