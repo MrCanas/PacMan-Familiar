@@ -6,6 +6,7 @@ import {
   updateHighScoreIfNeeded,
 } from '@/data/storage';
 import { Keyboard } from '@/input/Keyboard';
+import { Touch } from '@/input/Touch';
 import { CharacterPicker } from '@/ui/CharacterPicker';
 import { GameOverScreen } from '@/ui/GameOver';
 import { getGhostCandidates, GhostCountPicker } from '@/ui/GhostCountPicker';
@@ -41,6 +42,7 @@ export class Game {
   highScore = 0;
 
   readonly keyboard = new Keyboard();
+  readonly touch = new Touch();
   readonly hud = new HUD();
   readonly gameOverScreen = new GameOverScreen();
 
@@ -87,6 +89,7 @@ export class Game {
     }
 
     this.keyboard.attach();
+    this.touch.attach(canvas);
   }
 
   /** Compatibilidad con tests: laberinto activo. */
@@ -108,6 +111,7 @@ export class Game {
     this.stopLoop();
     this.stopGameplayIntervals();
     this.keyboard.detach();
+    this.touch.detach(this.canvas);
   }
 
   registerImage(id: string, img: HTMLImageElement): void {
@@ -172,7 +176,7 @@ export class Game {
       return;
     }
 
-    const dir = this.keyboard.getDesiredDirection();
+    const dir = this.touch.getDesiredDirection() ?? this.keyboard.getDesiredDirection();
     this.playSession.setPlayerIntent(dir);
     this.playSession.tickPlayer();
     this.playSession.checkCollisionsAfterPlayer();
