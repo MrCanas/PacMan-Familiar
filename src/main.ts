@@ -36,6 +36,18 @@ async function bootstrap(): Promise<void> {
     game.handleCanvasClick(e.clientX, e.clientY);
   });
 
+  const dpad = document.getElementById('dpad');
+  if (dpad) {
+    dpad.addEventListener('pointerdown', (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-dir]');
+      if (btn) {
+        e.preventDefault();
+        const dir = btn.dataset.dir as 'up' | 'down' | 'left' | 'right';
+        game.touch.setDirection(dir);
+      }
+    });
+  }
+
   game.startLoop();
 }
 
