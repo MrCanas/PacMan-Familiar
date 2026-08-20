@@ -4,7 +4,7 @@
 
 Juego web tipo Pac-Man personalizado con las caras de los miembros de la familia. Antes de cada partida se elige **con qué familia se juega**, **quién es el protagonista**, **quiénes son exactamente los fantasmas** (de 1 a 4, elegidos uno a uno) y **en qué escenario**: el laberinto de neón de siempre o el patio con piscina.
 
-Hay dos elencos: **los Valverde** (8 personajes) y **la familia de siempre** (los 5 originales).
+Hay dos elencos: **los Valverde** (8 personajes) y **los Marín** (los 5 originales).
 
 Proyecto pensado para construir junto a tres niños (el mayor de 14 años) como experiencia de aprendizaje de desarrollo web.
 
@@ -264,7 +264,7 @@ elegido a ojo.
 - [x] Carga de caras desde `public/characters/`.
 - [x] Renderizado de personajes con sus fotos en lugar de sprites genéricos.
 - [x] Persistencia en `localStorage` de la última selección.
-- [x] Dos elencos seleccionables (Valverde y la familia de siempre).
+- [x] Dos elencos seleccionables (los Valverde y los Marín).
 - [x] Elegir **quiénes** son los fantasmas, no sólo cuántos.
 
 ### Fase 3 — Pulido
