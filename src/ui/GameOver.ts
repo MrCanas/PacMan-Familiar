@@ -23,21 +23,27 @@ export function getGameOverMessage(
   return `¡${ghostName ?? 'Un fantasma'} atrapó a ${protagonistName}!`;
 }
 
-export type GameOverAction = 'play-again' | 'same-team';
+export type GameOverAction = 'play-again' | 'same-team' | 'ranking';
 
 export type GameOverButtonsLayout = {
   again: Rect;
   same: Rect;
+  /** Sólo existe si el ranking está configurado; ver `isRankingEnabled`. */
+  ranking: Rect | null;
 };
 
-export function layoutGameOverButtons(): GameOverButtonsLayout {
+export function layoutGameOverButtons(withRanking = false): GameOverButtonsLayout {
   const w = 250;
   const h = TOUCH_TARGET;
   const gap = 20;
   const y = CANVAS_HEIGHT - 40 - h;
+  const rankingH = 50;
   return {
     again: { x: CANVAS_WIDTH / 2 - w - gap / 2, y, w, h },
     same: { x: CANVAS_WIDTH / 2 + gap / 2, y, w, h },
+    ranking: withRanking
+      ? { x: CANVAS_WIDTH / 2 - 120, y: y - 14 - rankingH, w: 240, h: rankingH }
+      : null,
   };
 }
 
@@ -52,6 +58,9 @@ export function getGameOverButtonChoice(
   if (hitTest(buttons.same, x, y)) {
     return 'same-team';
   }
+  if (buttons.ranking && hitTest(buttons.ranking, x, y)) {
+    return 'ranking';
+  }
   return null;
 }
 
@@ -64,6 +73,7 @@ export class GameOverScreen {
       ghostId?: string;
       score: number;
       getImage: (id: string) => HTMLImageElement | undefined;
+      showRanking?: boolean;
     }
   ): void {
     const hero = getCharacterById(opts.protagonistId);
@@ -110,7 +120,14 @@ export class GameOverScreen {
       won ? PALETTE.primary : PALETTE.text
     );
 
-    const buttons = layoutGameOverButtons();
+    const buttons = layoutGameOverButtons(opts.showRanking ?? false);
+    if (buttons.ranking) {
+      drawButton(ctx, buttons.ranking, {
+        label: '🏆 Ver ranking',
+        variant: 'muted',
+        fontSize: 18,
+      });
+    }
     drawButton(ctx, buttons.again, {
       label: 'Jugar otra vez',
       color: PALETTE.primary,
@@ -123,7 +140,7 @@ export class GameOverScreen {
     });
   }
 
-  handleClick(x: number, y: number): GameOverAction | null {
-    return getGameOverButtonChoice(x, y, layoutGameOverButtons());
+  handleClick(x: number, y: number, showRanking = false): GameOverAction | null {
+    return getGameOverButtonChoice(x, y, layoutGameOverButtons(showRanking));
   }
 }

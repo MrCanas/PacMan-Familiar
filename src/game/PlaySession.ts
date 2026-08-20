@@ -4,6 +4,9 @@ import { PELLET_VALUE } from '@/game/constants';
 import type { DifficultySettings } from '@/game/difficulty';
 import { chooseGhostMove } from '@/game/ghostAI';
 import { GridMap } from '@/game/GridMap';
+import { CLASSIC_MAZE } from '@/game/scenarios/classicMaze';
+import type { ScenarioDefinition } from '@/game/scenarios/types';
+import { StepClock } from '@/game/StepClock';
 
 export type PlayStatus = 'playing' | 'won' | 'lost';
 
@@ -30,28 +33,40 @@ export class PlaySession {
   ghosts: GhostEntity[];
   status: PlayStatus = 'playing';
   score = 0;
+  /** Puntos comidos en esta partida; el ranking los necesita aparte. */
+  pelletsEaten = 0;
+  elapsedMs = 0;
   caughtGhostId: string | null = null;
+
   private readonly chaseProbability: number;
+  private readonly playerClock: StepClock;
+  /** Un reloj por fantasma: el que está en la piscina se queda atrás. */
+  private readonly ghostClocks: StepClock[];
 
   constructor(
     gridMap: GridMap,
     player: PlayerEntity,
     ghosts: GhostEntity[],
-    chaseProbability: number
+    settings: DifficultySettings
   ) {
     this.gridMap = gridMap;
     this.player = player;
     this.ghosts = ghosts;
-    this.chaseProbability = chaseProbability;
+    this.chaseProbability = settings.chaseProbability;
+    this.playerClock = new StepClock({ baseIntervalMs: settings.playerMoveInterval });
+    this.ghostClocks = ghosts.map(
+      () => new StepClock({ baseIntervalMs: settings.ghostMoveInterval })
+    );
   }
 
   static create(
     protagonistData: CharacterData,
     protagonistImage: HTMLImageElement,
     ghostEntries: { data: CharacterData; image: HTMLImageElement; col: number; row: number }[],
-    settings: DifficultySettings
+    settings: DifficultySettings,
+    scenario: ScenarioDefinition = CLASSIC_MAZE
   ): PlaySession {
-    const gridMap = GridMap.createForPlay();
+    const gridMap = GridMap.createForPlay(scenario);
     const { protagonist, ghosts: ghostSpawns } = gridMap.getSpawnPositions();
 
     const player: PlayerEntity = {
@@ -74,7 +89,7 @@ export class PlaySession {
       };
     });
 
-    return new PlaySession(gridMap, player, ghosts, settings.chaseProbability);
+    return new PlaySession(gridMap, player, ghosts, settings);
   }
 
   setPlayerIntent(direction: Direction | null): void {
@@ -82,6 +97,42 @@ export class PlaySession {
       return;
     }
     this.player.nextDirection = direction;
+  }
+
+  /** Cuánto de rápido va esa ficha ahora mismo, según la casilla que pisa. */
+  private speedFactorOf(entity: { col: number; row: number }): number {
+    return this.gridMap.speedFactorAt(entity.col, entity.row);
+  }
+
+  /**
+   * Hace correr la partida `dtMs` milisegundos.
+   *
+   * Cada ficha lleva su propio reloj, así que dentro de la piscina se avanza a
+   * 0,8x sin que eso afecte a quien va por el césped.
+   */
+  advance(dtMs: number, intent: Direction | null): void {
+    if (this.status !== 'playing') {
+      return;
+    }
+    this.elapsedMs += dtMs;
+    this.setPlayerIntent(intent);
+
+    this.playerClock.advance(
+      dtMs,
+      () => this.speedFactorOf(this.player),
+      () => {
+        this.tickPlayer();
+        this.checkCollisionsAfterPlayer();
+      }
+    );
+
+    this.ghosts.forEach((ghost, i) => {
+      this.ghostClocks[i]?.advance(
+        dtMs,
+        () => this.speedFactorOf(ghost),
+        () => this.tickGhost(ghost)
+      );
+    });
   }
 
   /** Un paso del jugador (una celda). */
@@ -106,6 +157,7 @@ export class PlaySession {
 
     if (gridMap.eatPellet(player.col, player.row)) {
       this.score += PELLET_VALUE;
+      this.pelletsEaten += 1;
     }
 
     if (gridMap.pelletsRemaining() === 0) {
@@ -113,34 +165,40 @@ export class PlaySession {
     }
   }
 
-  /** Un paso por fantasma (una celda cada uno). */
+  /** Un paso de todos los fantasmas. */
   tickGhosts(): void {
+    if (this.status !== 'playing') {
+      return;
+    }
+    for (const ghost of this.ghosts) {
+      this.tickGhost(ghost);
+    }
+  }
+
+  /** Un paso de un fantasma concreto, con su colisión inmediata. */
+  tickGhost(ghost: GhostEntity): void {
     if (this.status !== 'playing') {
       return;
     }
 
     const { player, gridMap } = this;
+    ghost.direction = chooseGhostMove(
+      gridMap,
+      ghost.col,
+      ghost.row,
+      ghost.direction,
+      player.col,
+      player.row,
+      this.chaseProbability
+    );
 
-    for (const ghost of this.ghosts) {
-      const open = chooseGhostMove(
-        gridMap,
-        ghost.col,
-        ghost.row,
-        ghost.direction,
-        player.col,
-        player.row,
-        this.chaseProbability
-      );
-      ghost.direction = open;
+    const { dx, dy } = directionDelta(ghost.direction);
+    const nc = ghost.col + dx;
+    const nr = ghost.row + dy;
 
-      const { dx, dy } = directionDelta(ghost.direction);
-      const nc = ghost.col + dx;
-      const nr = ghost.row + dy;
-
-      if (gridMap.canEnter(nc, nr)) {
-        ghost.col = nc;
-        ghost.row = nr;
-      }
+    if (gridMap.canEnter(nc, nr)) {
+      ghost.col = nc;
+      ghost.row = nr;
     }
 
     this.checkGhostCollision();
@@ -153,14 +211,23 @@ export class PlaySession {
     }
   }
 
+  /**
+   * Cada ficha se mueve por su cuenta y se comprueba justo despues de cada
+   * paso, asi que el cruce (heroe y fantasma intercambiando celda sin tocarse)
+   * no puede darse: quien entra en la celda del otro choca alli mismo.
+   */
   private checkGhostCollision(): void {
     for (const ghost of this.ghosts) {
       if (ghost.col === this.player.col && ghost.row === this.player.row) {
-        this.status = 'lost';
-        this.caughtGhostId = ghost.data.id;
+        this.lose(ghost);
         return;
       }
     }
+  }
+
+  private lose(ghost: GhostEntity): void {
+    this.status = 'lost';
+    this.caughtGhostId = ghost.data.id;
   }
 
   /** Comprueba colisión tras movimiento del jugador. */

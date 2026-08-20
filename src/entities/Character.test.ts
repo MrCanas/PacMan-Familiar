@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { CHARACTERS } from '@/data/characters';
+import { ALL_CHARACTERS } from '@/data/characters';
 import { Character } from '@/entities/Character';
 import { CELL_SIZE, PROTAGONIST_SPEED } from '@/game/constants';
 import type { Maze } from '@/game/Maze';
 
-const stubData = CHARACTERS[0]!;
+const stubData = ALL_CHARACTERS[0]!;
 const stubImg = new Image();
 
 describe('Character', () => {

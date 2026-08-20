@@ -27,3 +27,10 @@ Thumbs.db
 
 # Vite
 .vite
+
+# Fotos originales: pesan decenas de MB y no se publican.
+# Los sprites generados (public/characters) si van a Git.
+assets/originals/
+
+# Python
+__pycache__/

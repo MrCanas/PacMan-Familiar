@@ -1,17 +1,34 @@
 import { Cell } from '@/game/cells';
 import { CELL_SIZE, HUD_HEIGHT, MAZE_COLS, MAZE_ROWS } from '@/game/constants';
-import { buildNumericGrid } from '@/game/mazeTemplate';
+import { CLASSIC_MAZE } from '@/game/scenarios/classicMaze';
+import { parseScenario } from '@/game/scenarios/legend';
+import type { ScenarioDefinition, TerrainDrawContext } from '@/game/scenarios/types';
+import {
+  Decor,
+  Terrain,
+  TERRAIN_SPEED,
+  type DecorValue,
+  type LevelLayers,
+  type TerrainValue,
+  type Vec,
+} from '@/game/terrain';
 
 export class GridMap {
-  private grid: number[][];
+  readonly scenario: ScenarioDefinition;
+  private readonly layers: LevelLayers;
 
-  constructor(grid?: number[][]) {
-    this.grid = grid ?? buildNumericGrid().map((row) => [...row]);
+  constructor(scenario: ScenarioDefinition = CLASSIC_MAZE) {
+    this.scenario = scenario;
+    this.layers = parseScenario(scenario);
   }
 
-  /** Copia lista para jugar: convierte spawns en camino. */
-  static createForPlay(): GridMap {
-    const map = new GridMap();
+  static fromScenario(scenario: ScenarioDefinition): GridMap {
+    return new GridMap(scenario);
+  }
+
+  /** Copia lista para jugar: las salidas dejan de marcarse en el tablero. */
+  static createForPlay(scenario: ScenarioDefinition = CLASSIC_MAZE): GridMap {
+    const map = new GridMap(scenario);
     map.prepareForPlay();
     return map;
   }
@@ -19,205 +36,135 @@ export class GridMap {
   prepareForPlay(): void {
     for (let row = 0; row < MAZE_ROWS; row++) {
       for (let col = 0; col < MAZE_COLS; col++) {
-        const v = this.grid[row]![col]!;
-        if (v === Cell.PLAYER_SPAWN || v === Cell.GHOST_SPAWN) {
-          this.grid[row]![col] = Cell.PATH;
-        }
+        this.layers.spawnMarks[row]![col] = 0;
       }
     }
   }
 
-  getCell(col: number, row: number): number {
-    if (col < 0 || col >= MAZE_COLS || row < 0 || row >= MAZE_ROWS) {
-      return Cell.WALL;
-    }
-    return this.grid[row]![col]!;
+  private inside(col: number, row: number): boolean {
+    return col >= 0 && col < MAZE_COLS && row >= 0 && row < MAZE_ROWS;
   }
 
-  setCell(col: number, row: number, value: number): void {
-    if (col < 0 || col >= MAZE_COLS || row < 0 || row >= MAZE_ROWS) {
-      return;
-    }
-    this.grid[row]![col] = value;
+  terrainAt(col: number, row: number): TerrainValue {
+    if (!this.inside(col, row)) return Terrain.SOLID;
+    return this.layers.terrain[row]![col]!;
+  }
+
+  decorAt(col: number, row: number): DecorValue {
+    if (!this.inside(col, row)) return Decor.NONE;
+    return this.layers.decor[row]![col]!;
+  }
+
+  /**
+   * Cuánto de rápido se anda por esa celda. En la piscina es 0,8: cada paso
+   * tarda 1/0,8 veces más. Igual para el protagonista que para los fantasmas.
+   */
+  speedFactorAt(col: number, row: number): number {
+    return TERRAIN_SPEED[this.terrainAt(col, row)];
   }
 
   isWall(col: number, row: number): boolean {
-    return this.getCell(col, row) === Cell.WALL;
+    return this.terrainAt(col, row) === Terrain.SOLID;
+  }
+
+  /** Sólido que no es muro: seto, tumbona o mesa. Para el tema, no para el juego. */
+  isObstacle(col: number, row: number): boolean {
+    return this.isWall(col, row) && this.decorAt(col, row) !== Decor.WALL;
   }
 
   canEnter(col: number, row: number): boolean {
     return !this.isWall(col, row);
   }
 
-  /** Compatibilidad con API anterior basada en caracteres. */
-  cell(col: number, row: number): string {
-    const v = this.getCell(col, row);
-    switch (v) {
-      case Cell.WALL:
-        return '#';
-      case Cell.PELLET:
-        return '.';
-      case Cell.PLAYER_SPAWN:
-        return 'P';
-      case Cell.GHOST_SPAWN:
-        return 'G';
-      default:
-        return ' ';
-    }
-  }
-
   isWalkable(col: number, row: number): boolean {
     return this.canEnter(col, row);
   }
 
+  hasPellet(col: number, row: number): boolean {
+    if (!this.inside(col, row)) return false;
+    return this.layers.pellets[row]![col]!;
+  }
+
+  /** Compatibilidad con la API anterior basada en caracteres. */
+  cell(col: number, row: number): string {
+    if (!this.inside(col, row)) return '#';
+    const spawn = this.layers.spawnMarks[row]![col]!;
+    if (spawn === Cell.PLAYER_SPAWN) return 'P';
+    if (spawn === Cell.GHOST_SPAWN) return 'G';
+    if (this.isWall(col, row)) return '#';
+    if (this.hasPellet(col, row)) return '.';
+    return ' ';
+  }
+
   eatPellet(col: number, row: number): boolean {
-    if (this.getCell(col, row) !== Cell.PELLET) {
+    if (!this.hasPellet(col, row)) {
       return false;
     }
-    this.setCell(col, row, Cell.PATH);
+    this.layers.pellets[row]![col] = false;
+    this.layers.pelletCount -= 1;
     return true;
   }
 
+  /** Contador vivo: antes esto rebarría las 300 celdas en cada paso. */
   pelletsRemaining(): number {
-    let n = 0;
-    for (let row = 0; row < MAZE_ROWS; row++) {
-      for (let col = 0; col < MAZE_COLS; col++) {
-        if (this.getCell(col, row) === Cell.PELLET) {
-          n += 1;
-        }
-      }
-    }
-    return n;
+    return this.layers.pelletCount;
   }
 
-  getSpawnPositions(): {
-    protagonist: { col: number; row: number };
-    ghosts: { col: number; row: number }[];
-  } {
-    const ghosts: { col: number; row: number }[] = [];
-    let protagonist: { col: number; row: number } | null = null;
-    const source = buildNumericGrid();
-
-    for (let row = 0; row < MAZE_ROWS; row++) {
-      for (let col = 0; col < MAZE_COLS; col++) {
-        const v = source[row]![col]!;
-        if (v === Cell.PLAYER_SPAWN) {
-          protagonist = { col, row };
-        }
-        if (v === Cell.GHOST_SPAWN) {
-          ghosts.push({ col, row });
-        }
-      }
-    }
-
-    if (!protagonist) {
-      throw new Error('No hay celda P de protagonista');
-    }
-
-    return { protagonist, ghosts };
+  getSpawnPositions(): { protagonist: Vec; ghosts: Vec[] } {
+    return {
+      protagonist: { ...this.layers.playerSpawn },
+      ghosts: this.layers.ghostSpawns.map((g) => ({ ...g })),
+    };
   }
 
-  draw(ctx: CanvasRenderingContext2D): void {
+  private drawContext(ctx: CanvasRenderingContext2D, timeMs: number): TerrainDrawContext {
+    return {
+      ctx,
+      cols: MAZE_COLS,
+      rows: MAZE_ROWS,
+      cellSize: CELL_SIZE,
+      timeMs,
+      terrainAt: (col, row) => this.terrainAt(col, row),
+      decorAt: (col, row) => this.decorAt(col, row),
+      // Lo de fuera del tablero no cuenta como sólido: así el borde exterior
+      // también recibe su línea de neón en lugar de quedar como banda oscura.
+      isSolid: (col, row) => this.inside(col, row) && this.isWall(col, row),
+      isSolidOf: (col, row, decor) =>
+        this.inside(col, row) && this.isWall(col, row) && this.decorAt(col, row) === decor,
+      isWater: (col, row) => this.inside(col, row) && this.terrainAt(col, row) === Terrain.WATER,
+    };
+  }
+
+  draw(ctx: CanvasRenderingContext2D, timeMs = 0): void {
+    const { theme } = this.scenario;
     ctx.save();
     ctx.translate(0, HUD_HEIGHT);
 
-    ctx.fillStyle = '#050b1c';
+    ctx.fillStyle = theme.background;
     ctx.fillRect(0, 0, MAZE_COLS * CELL_SIZE, MAZE_ROWS * CELL_SIZE);
 
-    this.drawWalls(ctx);
+    theme.drawTerrain(this.drawContext(ctx, timeMs));
     this.drawPellets(ctx);
 
     ctx.restore();
   }
 
-  /**
-   * Los muros se dibujan como un bloque continuo: cada celda se expande hacia
-   * los vecinos que también son muro y se recorta contra los pasillos, de modo
-   * que el contorno queda como un tubo de neón en lugar de un mosaico.
-   */
-  /**
-   * Muro *dentro* del tablero. A diferencia de `isWall`, lo de fuera del
-   * tablero no cuenta como muro: así el borde exterior también recibe su
-   * línea de neón en lugar de quedar como una banda oscura.
-   */
-  private isSolid(col: number, row: number): boolean {
-    if (col < 0 || col >= MAZE_COLS || row < 0 || row >= MAZE_ROWS) {
-      return false;
-    }
-    return this.isWall(col, row);
-  }
-
-  private drawWalls(ctx: CanvasRenderingContext2D): void {
-    const pad = CELL_SIZE * 0.12;
-    const fill = new Path2D();
-    const outline = new Path2D();
-
-    for (let row = 0; row < MAZE_ROWS; row++) {
-      for (let col = 0; col < MAZE_COLS; col++) {
-        if (!this.isWall(col, row)) {
-          continue;
-        }
-        const openLeft = !this.isSolid(col - 1, row);
-        const openRight = !this.isSolid(col + 1, row);
-        const openUp = !this.isSolid(col, row - 1);
-        const openDown = !this.isSolid(col, row + 1);
-
-        const x0 = col * CELL_SIZE + (openLeft ? pad : 0);
-        const x1 = (col + 1) * CELL_SIZE - (openRight ? pad : 0);
-        const y0 = row * CELL_SIZE + (openUp ? pad : 0);
-        const y1 = (row + 1) * CELL_SIZE - (openDown ? pad : 0);
-        fill.rect(x0, y0, x1 - x0, y1 - y0);
-
-        if (openLeft) {
-          outline.moveTo(x0, y0);
-          outline.lineTo(x0, y1);
-        }
-        if (openRight) {
-          outline.moveTo(x1, y0);
-          outline.lineTo(x1, y1);
-        }
-        if (openUp) {
-          outline.moveTo(x0, y0);
-          outline.lineTo(x1, y0);
-        }
-        if (openDown) {
-          outline.moveTo(x0, y1);
-          outline.lineTo(x1, y1);
-        }
-      }
-    }
-
-    ctx.save();
-    ctx.fillStyle = '#111f4d';
-    ctx.fill(fill);
-    ctx.strokeStyle = '#60a5fa';
-    ctx.lineWidth = Math.max(1.5, CELL_SIZE * 0.075);
-    ctx.lineCap = 'square';
-    ctx.shadowColor = 'rgba(96, 165, 250, 0.85)';
-    ctx.shadowBlur = CELL_SIZE * 0.3;
-    ctx.stroke(outline);
-    ctx.restore();
-  }
-
   private drawPellets(ctx: CanvasRenderingContext2D): void {
+    const { pellet } = this.scenario.theme;
     const path = new Path2D();
-    const r = Math.max(1.5, CELL_SIZE * 0.1);
+    const r = Math.max(1.5, CELL_SIZE * (pellet.radiusFactor ?? 0.1));
     let any = false;
 
     for (let row = 0; row < MAZE_ROWS; row++) {
       for (let col = 0; col < MAZE_COLS; col++) {
-        if (this.getCell(col, row) !== Cell.PELLET) {
+        if (!this.hasPellet(col, row)) {
           continue;
         }
         any = true;
-        path.moveTo(col * CELL_SIZE + CELL_SIZE / 2 + r, row * CELL_SIZE + CELL_SIZE / 2);
-        path.arc(
-          col * CELL_SIZE + CELL_SIZE / 2,
-          row * CELL_SIZE + CELL_SIZE / 2,
-          r,
-          0,
-          Math.PI * 2
-        );
+        const cx = col * CELL_SIZE + CELL_SIZE / 2;
+        const cy = row * CELL_SIZE + CELL_SIZE / 2;
+        path.moveTo(cx + r, cy);
+        path.arc(cx, cy, r, 0, Math.PI * 2);
       }
     }
 
@@ -226,8 +173,8 @@ export class GridMap {
     }
 
     ctx.save();
-    ctx.fillStyle = '#fde68a';
-    ctx.shadowColor = 'rgba(253, 224, 71, 0.7)';
+    ctx.fillStyle = pellet.fill;
+    ctx.shadowColor = pellet.glow;
     ctx.shadowBlur = CELL_SIZE * 0.22;
     ctx.fill(path);
     ctx.restore();

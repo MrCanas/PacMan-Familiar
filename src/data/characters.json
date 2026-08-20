@@ -1,0 +1,136 @@
+{
+  "families": [
+    {
+      "id": "valverde",
+      "name": "Los Valverde",
+      "tagline": "Abuela, titos, papá y los peques",
+      "characters": [
+        {
+          "source": "Abuela.jpg",
+          "id": "abuela",
+          "name": "Abuela",
+          "accentColor": "#f472b6",
+          "crop": {
+            "cx": 0.5,
+            "cy": 0.5,
+            "side": 1.0
+          }
+        },
+        {
+          "source": "Papá.jpg",
+          "id": "papa",
+          "name": "Papá",
+          "accentColor": "#38bdf8",
+          "crop": {
+            "cx": 0.5,
+            "cy": 0.42,
+            "side": 1.0
+          }
+        },
+        {
+          "source": "Tito Mario.jpg",
+          "id": "tito-mario",
+          "name": "Tito Mario",
+          "accentColor": "#f59e0b",
+          "crop": {
+            "cx": 0.55,
+            "cy": 0.4,
+            "side": 1.0
+          }
+        },
+        {
+          "source": "Tita M José.jpg",
+          "id": "tita-m-jose",
+          "name": "Tita M José",
+          "accentColor": "#a78bfa",
+          "crop": {
+            "cx": 0.55,
+            "cy": 0.5,
+            "side": 1.0
+          }
+        },
+        {
+          "source": "Tito Javier.jpg",
+          "id": "tito-javier",
+          "name": "Tito Javier",
+          "accentColor": "#34d399",
+          "crop": {
+            "cx": 0.42,
+            "cy": 0.5,
+            "side": 1.0
+          }
+        },
+        {
+          "source": "Tito Jorge.jpg",
+          "id": "tito-jorge",
+          "name": "Tito Jorge",
+          "accentColor": "#fb7185",
+          "crop": {
+            "cx": 0.5,
+            "cy": 0.55,
+            "side": 1.0
+          }
+        },
+        {
+          "source": "Mateo.jpg",
+          "id": "mateo",
+          "name": "Mateo",
+          "accentColor": "#22d3ee",
+          "crop": {
+            "cx": 0.5,
+            "cy": 0.5,
+            "side": 1.0
+          }
+        },
+        {
+          "source": "Olivia.jpg",
+          "id": "olivia",
+          "name": "Olivia",
+          "accentColor": "#fbbf24",
+          "crop": {
+            "cx": 0.5,
+            "cy": 0.52,
+            "side": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "clasica",
+      "name": "La familia de siempre",
+      "tagline": "El elenco original del juego",
+      "characters": [
+        {
+          "source": "maria.png",
+          "id": "maria",
+          "name": "María",
+          "accentColor": "#ec4899"
+        },
+        {
+          "source": "jose.png",
+          "id": "jose",
+          "name": "José",
+          "accentColor": "#38bdf8"
+        },
+        {
+          "source": "mama.png",
+          "id": "mama",
+          "name": "Mamá",
+          "accentColor": "#f59e0b"
+        },
+        {
+          "source": "prima-ana.png",
+          "id": "prima-ana",
+          "name": "Prima Ana",
+          "accentColor": "#14b8a6"
+        },
+        {
+          "source": "primo-javier.png",
+          "id": "primo-javier",
+          "name": "Primo Javier",
+          "accentColor": "#a78bfa"
+        }
+      ]
+    }
+  ]
+}

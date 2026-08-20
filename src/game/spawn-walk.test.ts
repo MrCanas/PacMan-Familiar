@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { CHARACTERS } from '@/data/characters';
+import { ALL_CHARACTERS } from '@/data/characters';
 import { Protagonist } from '@/entities/Protagonist';
 import { directionDelta } from '@/entities/direction';
 import { PROTAGONIST_SPEED } from '@/game/constants';
@@ -21,7 +21,7 @@ describe('spawn walkability', () => {
   it('protagonist se mueve en laberinto real sin tecla (dirección inicial)', () => {
     const maze = new Maze();
     const { protagonist: spawn } = maze.getSpawnPositions();
-    const data = CHARACTERS[0]!;
+    const data = ALL_CHARACTERS[0]!;
     const img = new Image();
     let moved = false;
     const p = new Protagonist(data, img, spawn.col, spawn.row, PROTAGONIST_SPEED, () => {
@@ -38,7 +38,7 @@ describe('spawn walkability', () => {
   it('protagonist responde a ArrowLeft en laberinto real', () => {
     const maze = new Maze();
     const { protagonist: spawn } = maze.getSpawnPositions();
-    const data = CHARACTERS[0]!;
+    const data = ALL_CHARACTERS[0]!;
     const img = new Image();
     const p = new Protagonist(data, img, spawn.col, spawn.row, PROTAGONIST_SPEED, () => {});
     p.snapToCell(spawn.col, spawn.row);
