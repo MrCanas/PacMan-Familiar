@@ -27,7 +27,7 @@ function memoryStorage(): Storage {
 }
 
 describe('storage', () => {
-  it('guardar y leer �ltima selecci�n', () => {
+  it('guardar y leer última selección', () => {
     const s = memoryStorage();
     saveProtagonistId(s, 'maria');
     saveGhostCount(s, 2);

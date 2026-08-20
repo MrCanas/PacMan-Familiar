@@ -9,7 +9,7 @@ const stubData = CHARACTERS[0]!;
 const stubImg = new Image();
 
 describe('Character', () => {
-  it('sin obst��culos, update mueve pixelX/pixelY seg��n direcci��n', () => {
+  it('sin obstáculos, update mueve pixelX/pixelY según dirección', () => {
     const maze = { isWalkable: () => true } as unknown as Maze;
     const c = new Character(stubData, stubImg, 5, 5, PROTAGONIST_SPEED, 'right');
     const x0 = c.pixelX;
@@ -17,7 +17,7 @@ describe('Character', () => {
     expect(c.pixelX).toBeGreaterThan(x0);
   });
 
-  it('contra una pared no avanza m��s all�� del centro de la celda bloqueada', () => {
+  it('contra una pared no avanza más allá del centro de la celda bloqueada', () => {
     const maze = {
       isWalkable: (col: number, row: number) => col < 6 || row !== 5,
     } as unknown as Maze;
@@ -29,7 +29,7 @@ describe('Character', () => {
     expect(c.pixelX).toBeLessThanOrEqual(limit + PROTAGONIST_SPEED);
   });
 
-  it('aplica direcci��n en cola al llegar al centro cuando hay cruce', () => {
+  it('aplica dirección en cola al llegar al centro cuando hay cruce', () => {
     const maze = { isWalkable: () => true } as unknown as Maze;
     const c = new Character(stubData, stubImg, 5, 5, PROTAGONIST_SPEED, 'right');
     c.snapToCell(5, 5);

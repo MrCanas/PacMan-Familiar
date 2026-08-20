@@ -9,31 +9,31 @@ export const CHARACTERS: CharacterData[] = [
   {
     id: 'maria',
     name: 'María',
-    imagePath: '/characters/maria.png',
+    imagePath: '/characters/maria.webp',
     accentColor: '#ec4899',
   },
   {
     id: 'jose',
     name: 'José',
-    imagePath: '/characters/jose.png',
+    imagePath: '/characters/jose.webp',
     accentColor: '#38bdf8',
   },
   {
     id: 'mama',
     name: 'Mamá',
-    imagePath: '/characters/mama.png',
+    imagePath: '/characters/mama.webp',
     accentColor: '#f59e0b',
   },
   {
     id: 'prima-ana',
     name: 'Prima Ana',
-    imagePath: '/characters/prima-ana.png',
+    imagePath: '/characters/prima-ana.webp',
     accentColor: '#14b8a6',
   },
   {
     id: 'primo-javier',
     name: 'Primo Javier',
-    imagePath: '/characters/primo-javier.png',
+    imagePath: '/characters/primo-javier.webp',
     accentColor: '#a78bfa',
   },
 ];

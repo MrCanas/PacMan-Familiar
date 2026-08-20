@@ -2,19 +2,59 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no"
+    />
+    <meta name="theme-color" content="#020617" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta
+      name="description"
+      content="Pac-Man casero con las caras de la familia: elige protagonista, fantasmas y a correr."
+    />
     <title>Pac-Man Familiar</title>
   </head>
   <body>
-    <div class="canvas-wrap">
-      <canvas
-        id="game"
-        width="640"
-        height="560"
-        tabindex="0"
-        aria-label="Juego Pac-Man Familiar"
-      ></canvas>
-    </div>
+    <main class="app">
+      <div class="stage" id="stage">
+        <canvas
+          id="game"
+          width="640"
+          height="560"
+          tabindex="0"
+          aria-label="Juego Pac-Man Familiar"
+        ></canvas>
+      </div>
+
+      <nav class="pad" id="dpad" aria-label="Controles de movimiento">
+        <button type="button" class="pad__btn pad__btn--up" data-dir="up" aria-label="Arriba">
+          <span aria-hidden="true">▲</span>
+        </button>
+        <button
+          type="button"
+          class="pad__btn pad__btn--left"
+          data-dir="left"
+          aria-label="Izquierda"
+        >
+          <span aria-hidden="true">◀</span>
+        </button>
+        <button
+          type="button"
+          class="pad__btn pad__btn--right"
+          data-dir="right"
+          aria-label="Derecha"
+        >
+          <span aria-hidden="true">▶</span>
+        </button>
+        <button type="button" class="pad__btn pad__btn--down" data-dir="down" aria-label="Abajo">
+          <span aria-hidden="true">▼</span>
+        </button>
+      </nav>
+
+      <p class="hint">Mueve con las flechas, WASD o deslizando el dedo sobre el tablero.</p>
+    </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

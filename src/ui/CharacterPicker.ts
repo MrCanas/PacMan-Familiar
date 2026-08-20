@@ -1,5 +1,17 @@
 import type { CharacterData } from '@/data/characters';
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from '@/game/constants';
+import { drawFaceBadge } from '@/game/sprites';
+import {
+  drawBackdrop,
+  drawButton,
+  drawCaption,
+  drawSubtitle,
+  drawTitle,
+  hitTest,
+  PALETTE,
+  TOUCH_TARGET,
+  type Rect,
+} from '@/ui/theme';
 
 export type FaceLayout = { id: string; cx: number; cy: number; r: number };
 
@@ -19,15 +31,22 @@ export function isNextButtonEnabled(selectedId: string | null): boolean {
   return selectedId !== null;
 }
 
-const FACE_R = 60;
-const TITLE_Y = 56;
-const ROW_Y = 180;
-const BTN_MARGIN = 24;
+const FACE_R = 58;
+const TITLE_Y = 62;
+const SUBTITLE_Y = 100;
+const ROW_Y = 236;
+const BTN_MARGIN = 28;
 
 export class CharacterPicker {
   private selectedId: string | null = null;
   private layout: FaceLayout[] = [];
-  private nextButton = { x: 0, y: 0, w: 0, h: 0, enabled: false };
+  private nextButton: Rect & { enabled: boolean } = {
+    x: 0,
+    y: 0,
+    w: 0,
+    h: 0,
+    enabled: false,
+  };
 
   constructor(
     private readonly characters: CharacterData[],
@@ -41,7 +60,7 @@ export class CharacterPicker {
 
   private rebuildLayout(): void {
     const n = this.characters.length;
-    const marginX = 32;
+    const marginX = 24;
     const slot = (CANVAS_WIDTH - marginX * 2) / n;
     this.layout = this.characters.map((c, i) => ({
       id: c.id,
@@ -49,26 +68,22 @@ export class CharacterPicker {
       cy: ROW_Y,
       r: FACE_R,
     }));
+
+    const w = 260;
     this.nextButton = {
-      x: CANVAS_WIDTH / 2 - 90,
-      y: CANVAS_HEIGHT - BTN_MARGIN - 44,
-      w: 180,
-      h: 44,
+      x: CANVAS_WIDTH / 2 - w / 2,
+      y: CANVAS_HEIGHT - BTN_MARGIN - TOUCH_TARGET,
+      w,
+      h: TOUCH_TARGET,
       enabled: isNextButtonEnabled(this.selectedId),
     };
   }
 
   render(ctx: CanvasRenderingContext2D): void {
     this.rebuildLayout();
-    ctx.save();
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-    ctx.fillStyle = '#f8fafc';
-    ctx.font = 'bold 26px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('¿Quién es el protagonista?', CANVAS_WIDTH / 2, TITLE_Y);
+    drawBackdrop(ctx);
+    drawTitle(ctx, '¿Quién es el protagonista?', TITLE_Y);
+    drawSubtitle(ctx, 'Toca una cara para elegirla', SUBTITLE_Y);
 
     for (let i = 0; i < this.characters.length; i++) {
       const ch = this.characters[i]!;
@@ -77,48 +92,37 @@ export class CharacterPicker {
       if (!img) continue;
       const { cx, cy, r } = slot;
       const selected = this.selectedId === ch.id;
-      const borderW = selected ? 6 : 3;
 
-      const diameter = r * 2;
-      const scale = Math.max(diameter / img.naturalWidth, diameter / img.naturalHeight);
-      const dw = img.naturalWidth * scale;
-      const dh = img.naturalHeight * scale;
-      const dx = cx - dw / 2;
-      const dy = cy - dh / 2;
+      if (selected) {
+        // Halo para que la selección se vea también a plena luz del sol.
+        ctx.save();
+        ctx.strokeStyle = ch.accentColor;
+        ctx.globalAlpha = 0.35;
+        ctx.lineWidth = 10;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r + 12, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
 
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.drawImage(img, dx, dy, dw, dh);
-      ctx.restore();
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.strokeStyle = ch.accentColor;
-      ctx.lineWidth = borderW;
-      ctx.stroke();
-      ctx.restore();
-
-      ctx.fillStyle = '#e2e8f0';
-      ctx.font = '600 14px system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillText(ch.name, cx, cy + r + 8);
+      drawFaceBadge(ctx, ch.id, img, cx, cy, r, ch.accentColor, {
+        ringWidth: selected ? 8 : 4,
+        glow: selected,
+      });
+      drawCaption(ctx, ch.name, cx, cy + r + 26, selected ? PALETTE.text : PALETTE.textMuted);
     }
 
-    const btn = this.nextButton;
-    ctx.fillStyle = btn.enabled ? '#22c55e' : '#475569';
-    ctx.beginPath();
-    ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 10);
-    ctx.fill();
-    ctx.fillStyle = '#0f172a';
-    ctx.font = '600 16px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('Siguiente →', btn.x + btn.w / 2, btn.y + btn.h / 2);
-    ctx.restore();
+    const selectedName = this.characters.find((c) => c.id === this.selectedId)?.name;
+    if (selectedName) {
+      drawSubtitle(ctx, `Protagonista: ${selectedName}`, ROW_Y + FACE_R + 84, PALETTE.text);
+    }
+
+    drawButton(ctx, this.nextButton, {
+      label: 'Siguiente →',
+      color: PALETTE.primary,
+      enabled: this.nextButton.enabled,
+      fontSize: 22,
+    });
   }
 
   handleClick(x: number, y: number): void {
@@ -126,20 +130,10 @@ export class CharacterPicker {
     const hit = getCharacterAtPosition(x, y, this.layout);
     if (hit) {
       this.selectedId = hit;
-      console.log(`[sonido placeholder] selección: ${hit}`);
       return;
     }
-    const btn = this.nextButton;
-    if (
-      btn.enabled &&
-      x >= btn.x &&
-      x <= btn.x + btn.w &&
-      y >= btn.y &&
-      y <= btn.y + btn.h
-    ) {
-      if (this.selectedId) {
-        this.onConfirm(this.selectedId);
-      }
+    if (this.nextButton.enabled && hitTest(this.nextButton, x, y) && this.selectedId) {
+      this.onConfirm(this.selectedId);
     }
   }
 
