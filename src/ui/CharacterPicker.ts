@@ -7,89 +7,73 @@ import {
   drawCaption,
   drawSubtitle,
   drawTitle,
+  faceAtPosition,
   hitTest,
+  layoutFaceGrid,
   PALETTE,
   TOUCH_TARGET,
+  type FaceSlot,
   type Rect,
 } from '@/ui/theme';
 
-export type FaceLayout = { id: string; cx: number; cy: number; r: number };
+/** Alias historico: un retrato colocado en pantalla. */
+export type FaceLayout = FaceSlot;
 
-export function getCharacterAtPosition(x: number, y: number, layout: FaceLayout[]): string | null {
-  for (const f of layout) {
-    const dx = x - f.cx;
-    const dy = y - f.cy;
-    const r = f.r;
-    if (dx * dx + dy * dy <= r * r) {
-      return f.id;
-    }
-  }
-  return null;
-}
+export const getCharacterAtPosition = faceAtPosition;
 
 export function isNextButtonEnabled(selectedId: string | null): boolean {
   return selectedId !== null;
 }
 
-const FACE_R = 58;
-const TITLE_Y = 62;
-const SUBTITLE_Y = 100;
-const ROW_Y = 236;
-const BTN_MARGIN = 28;
+const TITLE_Y = 56;
+const SUBTITLE_Y = 92;
+const GRID: Rect = { x: 24, y: 118, w: CANVAS_WIDTH - 48, h: 288 };
+const BTN_MARGIN = 24;
 
 export class CharacterPicker {
   private selectedId: string | null = null;
-  private layout: FaceLayout[] = [];
-  private nextButton: Rect & { enabled: boolean } = {
-    x: 0,
-    y: 0,
-    w: 0,
-    h: 0,
-    enabled: false,
-  };
+  private layout: FaceSlot[] = [];
+  private backButton: Rect = { x: 0, y: 0, w: 0, h: 0 };
+  private nextButton: Rect & { enabled: boolean } = { x: 0, y: 0, w: 0, h: 0, enabled: false };
 
   constructor(
-    private readonly characters: CharacterData[],
     private readonly getImage: (id: string) => HTMLImageElement | undefined,
+    private readonly onBack: () => void,
     private readonly onConfirm: (id: string) => void
   ) {}
 
-  getLayout(): FaceLayout[] {
+  getLayout(): FaceSlot[] {
     return this.layout;
   }
 
-  private rebuildLayout(): void {
-    const n = this.characters.length;
-    const marginX = 24;
-    const slot = (CANVAS_WIDTH - marginX * 2) / n;
-    this.layout = this.characters.map((c, i) => ({
-      id: c.id,
-      cx: marginX + slot * (i + 0.5),
-      cy: ROW_Y,
-      r: FACE_R,
-    }));
+  private rebuildLayout(characters: CharacterData[]): void {
+    this.layout = layoutFaceGrid(
+      characters.map((c) => c.id),
+      GRID,
+      { maxPerRow: characters.length <= 5 ? characters.length : 4 }
+    );
 
-    const w = 260;
+    const y = CANVAS_HEIGHT - BTN_MARGIN - TOUCH_TARGET;
+    this.backButton = { x: 24, y, w: 150, h: TOUCH_TARGET };
     this.nextButton = {
-      x: CANVAS_WIDTH / 2 - w / 2,
-      y: CANVAS_HEIGHT - BTN_MARGIN - TOUCH_TARGET,
-      w,
+      x: CANVAS_WIDTH - 24 - 240,
+      y,
+      w: 240,
       h: TOUCH_TARGET,
       enabled: isNextButtonEnabled(this.selectedId),
     };
   }
 
-  render(ctx: CanvasRenderingContext2D): void {
-    this.rebuildLayout();
+  render(ctx: CanvasRenderingContext2D, characters: CharacterData[]): void {
+    this.rebuildLayout(characters);
     drawBackdrop(ctx);
     drawTitle(ctx, '¿Quién es el protagonista?', TITLE_Y);
     drawSubtitle(ctx, 'Toca una cara para elegirla', SUBTITLE_Y);
 
-    for (let i = 0; i < this.characters.length; i++) {
-      const ch = this.characters[i]!;
-      const slot = this.layout[i]!;
+    characters.forEach((ch, i) => {
+      const slot = this.layout[i];
       const img = this.getImage(ch.id);
-      if (!img) continue;
+      if (!slot || !img) return;
       const { cx, cy, r } = slot;
       const selected = this.selectedId === ch.id;
 
@@ -100,7 +84,7 @@ export class CharacterPicker {
         ctx.globalAlpha = 0.35;
         ctx.lineWidth = 10;
         ctx.beginPath();
-        ctx.arc(cx, cy, r + 12, 0, Math.PI * 2);
+        ctx.arc(cx, cy, r + 10, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
       }
@@ -109,14 +93,10 @@ export class CharacterPicker {
         ringWidth: selected ? 8 : 4,
         glow: selected,
       });
-      drawCaption(ctx, ch.name, cx, cy + r + 26, selected ? PALETTE.text : PALETTE.textMuted);
-    }
+      drawCaption(ctx, ch.name, cx, cy + r + 8, selected ? PALETTE.text : PALETTE.textMuted);
+    });
 
-    const selectedName = this.characters.find((c) => c.id === this.selectedId)?.name;
-    if (selectedName) {
-      drawSubtitle(ctx, `Protagonista: ${selectedName}`, ROW_Y + FACE_R + 84, PALETTE.text);
-    }
-
+    drawButton(ctx, this.backButton, { label: '← Familia', variant: 'muted', fontSize: 18 });
     drawButton(ctx, this.nextButton, {
       label: 'Siguiente →',
       color: PALETTE.primary,
@@ -125,11 +105,15 @@ export class CharacterPicker {
     });
   }
 
-  handleClick(x: number, y: number): void {
-    this.rebuildLayout();
-    const hit = getCharacterAtPosition(x, y, this.layout);
+  handleClick(x: number, y: number, characters: CharacterData[]): void {
+    this.rebuildLayout(characters);
+    const hit = faceAtPosition(x, y, this.layout);
     if (hit) {
       this.selectedId = hit;
+      return;
+    }
+    if (hitTest(this.backButton, x, y)) {
+      this.onBack();
       return;
     }
     if (this.nextButton.enabled && hitTest(this.nextButton, x, y) && this.selectedId) {

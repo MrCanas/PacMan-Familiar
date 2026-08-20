@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { CHARACTERS } from '@/data/characters';
+import { ALL_CHARACTERS } from '@/data/characters';
 import { Ghost } from '@/entities/Ghost';
 import { GHOST_SPEED_FACTOR, PROTAGONIST_SPEED } from '@/game/constants';
 import type { Maze } from '@/game/Maze';
 import { oppositeDirection } from '@/entities/direction';
 
-const stubData = CHARACTERS[1]!;
+const stubData = ALL_CHARACTERS[1]!;
 const stubImg = new Image();
 
 describe('Ghost (legacy entity)', () => {

@@ -1,50 +1,22 @@
-export interface CharacterData {
-  id: string;
-  name: string;
-  imagePath: string;
-  accentColor: string;
-}
-
-export const CHARACTERS: CharacterData[] = [
-  {
-    id: 'maria',
-    name: 'María',
-    imagePath: '/characters/maria.webp',
-    accentColor: '#ec4899',
-  },
-  {
-    id: 'jose',
-    name: 'José',
-    imagePath: '/characters/jose.webp',
-    accentColor: '#38bdf8',
-  },
-  {
-    id: 'mama',
-    name: 'Mamá',
-    imagePath: '/characters/mama.webp',
-    accentColor: '#f59e0b',
-  },
-  {
-    id: 'prima-ana',
-    name: 'Prima Ana',
-    imagePath: '/characters/prima-ana.webp',
-    accentColor: '#14b8a6',
-  },
-  {
-    id: 'primo-javier',
-    name: 'Primo Javier',
-    imagePath: '/characters/primo-javier.webp',
-    accentColor: '#a78bfa',
-  },
-];
+/**
+ * Fachada historica del elenco. Los datos viven ahora en `@/data/families`,
+ * que agrupa a los personajes por familia; aqui solo quedan los tipos y los
+ * ayudantes que no dependen de una familia concreta.
+ */
+export type { CharacterData, FamilyData } from '@/data/families';
+export {
+  ALL_CHARACTERS,
+  DEFAULT_FAMILY_ID,
+  FAMILIES,
+  getCharacterById,
+  getFamilyById,
+  getFamilyOfCharacter,
+  resolveFamily,
+} from '@/data/families';
 
 export type Role = 'protagonist' | 'ghost';
 
 export interface RoleAssignment {
   characterId: string;
   role: Role;
-}
-
-export function getCharacterById(id: string): CharacterData | undefined {
-  return CHARACTERS.find((c) => c.id === id);
 }

@@ -155,3 +155,61 @@ export function drawCaption(
   ctx.fillText(text, cx, y);
   ctx.restore();
 }
+
+/** Un retrato circular ya colocado: centro, radio e id del personaje. */
+export type FaceSlot = { id: string; cx: number; cy: number; r: number };
+
+export type FaceGridOptions = {
+  /** Maximo de caras por fila antes de partir en varias. */
+  maxPerRow?: number;
+  maxRadius?: number;
+  /** Hueco reservado bajo cada cara para su nombre. */
+  captionGap?: number;
+  /** Separacion horizontal minima entre caras. */
+  gap?: number;
+};
+
+/**
+ * Reparte `ids` en una rejilla de retratos centrada dentro de `area`.
+ *
+ * Con cinco caras cabe una sola fila, pero los Valverde son ocho y no caben a
+ * lo ancho del tablero: en vez de encogerlas hasta que no se distinga quien es
+ * quien, se parten en filas equilibradas (8 = 4+4, 7 = 4+3).
+ */
+export function layoutFaceGrid(
+  ids: string[],
+  area: Rect,
+  options: FaceGridOptions = {}
+): FaceSlot[] {
+  const { maxPerRow = 4, maxRadius = 58, captionGap = 26, gap = 12 } = options;
+  if (ids.length === 0) return [];
+
+  const rows = Math.ceil(ids.length / maxPerRow);
+  // Filas equilibradas: con 7 preferimos 4+3 a 4+4-1 con un hueco raro.
+  const perRow = Math.ceil(ids.length / rows);
+  const rowHeight = area.h / rows;
+  const slotWidth = area.w / perRow;
+  const r = Math.max(12, Math.min(maxRadius, slotWidth / 2 - gap, (rowHeight - captionGap) / 2));
+
+  const slots: FaceSlot[] = [];
+  for (let row = 0; row < rows; row++) {
+    const rowIds = ids.slice(row * perRow, (row + 1) * perRow);
+    const width = rowIds.length * slotWidth;
+    const startX = area.x + (area.w - width) / 2;
+    const cy = area.y + rowHeight * row + (rowHeight - captionGap) / 2;
+    rowIds.forEach((id, i) => {
+      slots.push({ id, cx: startX + slotWidth * (i + 0.5), cy, r });
+    });
+  }
+  return slots;
+}
+
+/** Retrato tocado, o `null`. Hit-test circular: el dedo no es un cuadrado. */
+export function faceAtPosition(x: number, y: number, slots: FaceSlot[]): string | null {
+  for (const f of slots) {
+    const dx = x - f.cx;
+    const dy = y - f.cy;
+    if (dx * dx + dy * dy <= f.r * f.r) return f.id;
+  }
+  return null;
+}

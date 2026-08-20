@@ -1,6 +1,6 @@
 import '@/styles/main.css';
 
-import { CHARACTERS } from '@/data/characters';
+import { ALL_CHARACTERS } from '@/data/characters';
 import { Game } from '@/game/Game';
 import { CanvasViewport } from '@/game/viewport';
 
@@ -35,13 +35,23 @@ async function bootstrap(): Promise<void> {
   const viewport = new CanvasViewport(canvas, stage);
   const game = new Game(canvas, ctx, viewport);
 
-  const images = await Promise.all(CHARACTERS.map((c) => loadImage(c.imagePath)));
-  CHARACTERS.forEach((c, i) => {
-    const img = images[i];
-    if (img) {
-      game.registerImage(c.id, img);
-    }
-  });
+  // Se lanzan todas las caras a la vez, pero solo se esperan las de la familia
+  // activa: con dos elencos, esperar a las trece dejaria la pantalla en negro
+  // mas tiempo del necesario. Las demas se van pintando segun llegan.
+  const active = new Set(game.roster.map((c) => c.id));
+  const loads = ALL_CHARACTERS.map((c) => ({
+    id: c.id,
+    done: loadImage(c.imagePath)
+      .then((img) => {
+        game.registerImage(c.id, img);
+        game.render();
+      })
+      .catch((err: unknown) => {
+        // Una cara que falla no debe impedir jugar con el resto.
+        console.error(err);
+      }),
+  }));
+  await Promise.all(loads.filter((l) => active.has(l.id)).map((l) => l.done));
 
   viewport.observe(() => game.render());
   game.attachTouchControls(canvas, dpad);

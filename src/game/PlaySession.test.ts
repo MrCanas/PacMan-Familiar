@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { CHARACTERS } from '@/data/characters';
+import { ALL_CHARACTERS } from '@/data/characters';
 import { getDifficultySettings } from '@/game/difficulty';
 import { PlaySession } from '@/game/PlaySession';
 
@@ -10,7 +10,7 @@ stubImg.height = 32;
 
 describe('PlaySession', () => {
   it('jugador se mueve una celda con dirección válida', () => {
-    const hero = CHARACTERS[0]!;
+    const hero = ALL_CHARACTERS[0]!;
     const session = PlaySession.create(hero, stubImg, [], getDifficultySettings('medium'));
     const { col, row } = session.player;
     session.setPlayerIntent('left');
@@ -20,7 +20,7 @@ describe('PlaySession', () => {
   });
 
   it('jugador no entra en pared', () => {
-    const hero = CHARACTERS[0]!;
+    const hero = ALL_CHARACTERS[0]!;
     const session = PlaySession.create(hero, stubImg, [], getDifficultySettings('medium'));
     session.player.col = 0;
     session.player.row = 1;
@@ -31,8 +31,8 @@ describe('PlaySession', () => {
   });
 
   it('pierde si fantasma comparte celda', () => {
-    const hero = CHARACTERS[0]!;
-    const ghost = CHARACTERS[1]!;
+    const hero = ALL_CHARACTERS[0]!;
+    const ghost = ALL_CHARACTERS[1]!;
     const session = PlaySession.create(
       hero,
       stubImg,
