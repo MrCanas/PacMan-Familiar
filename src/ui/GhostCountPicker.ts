@@ -1,9 +1,24 @@
 import type { CharacterData } from '@/data/characters';
 import { getCharacterById } from '@/data/characters';
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from '@/game/constants';
+import { drawFaceBadge } from '@/game/sprites';
 import { DEFAULT_DIFFICULTY, type Difficulty } from '@/game/difficulty';
+import {
+  drawBackdrop,
+  drawButton,
+  drawCaption,
+  drawSubtitle,
+  drawTitle,
+  hitTest,
+  PALETTE,
+  TOUCH_TARGET,
+  type Rect,
+} from '@/ui/theme';
 
-export function getGhostCandidates(protagonistId: string, allCharacters: CharacterData[]): CharacterData[] {
+export function getGhostCandidates(
+  protagonistId: string,
+  allCharacters: CharacterData[]
+): CharacterData[] {
   return allCharacters.filter((c) => c.id !== protagonistId);
 }
 
@@ -25,10 +40,16 @@ const DIFFICULTY_OPTIONS: { id: Difficulty; label: string }[] = [
 export class GhostCountPicker {
   private ghostCount: number | null = null;
   private difficulty: Difficulty = DEFAULT_DIFFICULTY;
-  private countButtons: { n: number; x: number; y: number; w: number; h: number }[] = [];
-  private difficultyButtons: { id: Difficulty; x: number; y: number; w: number; h: number }[] = [];
-  private backButton = { x: 0, y: 0, w: 0, h: 0 };
-  private startButton = { x: 0, y: 0, w: 0, h: 0, enabled: false };
+  private countButtons: (Rect & { n: number })[] = [];
+  private difficultyButtons: (Rect & { id: Difficulty })[] = [];
+  private backButton: Rect = { x: 0, y: 0, w: 0, h: 0 };
+  private startButton: Rect & { enabled: boolean } = {
+    x: 0,
+    y: 0,
+    w: 0,
+    h: 0,
+    enabled: false,
+  };
 
   constructor(
     private readonly allCharacters: CharacterData[],
@@ -47,23 +68,23 @@ export class GhostCountPicker {
   }
 
   private rebuildButtons(): void {
-    const y = 120;
-    const w = 56;
-    const h = 44;
-    const gap = 12;
-    const startX = CANVAS_WIDTH / 2 - (4 * w + 3 * gap) / 2;
+    const countY = 142;
+    const countW = 78;
+    const countH = 64;
+    const countGap = 14;
+    const countStartX = CANVAS_WIDTH / 2 - (4 * countW + 3 * countGap) / 2;
     this.countButtons = [1, 2, 3, 4].map((n, i) => ({
       n,
-      x: startX + i * (w + gap),
-      y,
-      w,
-      h,
+      x: countStartX + i * (countW + countGap),
+      y: countY,
+      w: countW,
+      h: countH,
     }));
 
-    const diffY = 168;
-    const diffW = 120;
-    const diffH = 36;
-    const diffGap = 10;
+    const diffY = 250;
+    const diffW = 150;
+    const diffH = 58;
+    const diffGap = 14;
     const diffTotal = DIFFICULTY_OPTIONS.length * diffW + (DIFFICULTY_OPTIONS.length - 1) * diffGap;
     const diffStartX = CANVAS_WIDTH / 2 - diffTotal / 2;
     this.difficultyButtons = DIFFICULTY_OPTIONS.map((opt, i) => ({
@@ -74,176 +95,126 @@ export class GhostCountPicker {
       h: diffH,
     }));
 
-    this.backButton = { x: 32, y: CANVAS_HEIGHT - 60, w: 140, h: 44 };
+    const bottomY = CANVAS_HEIGHT - 28 - TOUCH_TARGET;
+    this.backButton = { x: 28, y: bottomY, w: 170, h: TOUCH_TARGET };
     this.startButton = {
-      x: CANVAS_WIDTH - 32 - 200,
-      y: CANVAS_HEIGHT - 60,
-      w: 200,
-      h: 44,
+      x: CANVAS_WIDTH - 28 - 240,
+      y: bottomY,
+      w: 240,
+      h: TOUCH_TARGET,
       enabled: isStartButtonEnabled(this.ghostCount),
     };
   }
 
   render(ctx: CanvasRenderingContext2D, protagonistId: string | null): void {
     this.rebuildButtons();
-    ctx.save();
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    drawBackdrop(ctx);
 
     const hero = protagonistId ? getCharacterById(protagonistId) : undefined;
     const imgHero = protagonistId ? this.getImage(protagonistId) : undefined;
 
-    if (hero && imgHero) {
-      const cx = 96;
-      const cy = 56;
-      const r = 28;
-      const diameter = r * 2;
-      const scale = Math.max(diameter / imgHero.naturalWidth, diameter / imgHero.naturalHeight);
-      const dw = imgHero.naturalWidth * scale;
-      const dh = imgHero.naturalHeight * scale;
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.drawImage(imgHero, cx - dw / 2, cy - dh / 2, dw, dh);
-      ctx.restore();
-      ctx.strokeStyle = hero.accentColor;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.stroke();
+    drawTitle(ctx, '¿Cuántos fantasmas?', 44);
 
-      ctx.fillStyle = '#f8fafc';
+    if (hero && imgHero) {
+      const r = 24;
+      const label = `Protagonista: ${hero.name}`;
+      ctx.save();
+      ctx.font = '600 18px system-ui, sans-serif';
+      const textWidth = ctx.measureText(label).width;
+      ctx.restore();
+
+      const totalWidth = r * 2 + 12 + textWidth;
+      const cx = CANVAS_WIDTH / 2 - totalWidth / 2 + r;
+      const cy = 98;
+      drawFaceBadge(ctx, hero.id, imgHero, cx, cy, r, hero.accentColor, { ringWidth: 3 });
+
+      ctx.save();
+      ctx.fillStyle = PALETTE.textMuted;
       ctx.font = '600 18px system-ui, sans-serif';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`Protagonista: ${hero.name}`, cx + r + 16, cy);
+      ctx.fillText(label, cx + r + 12, cy);
+      ctx.restore();
     }
 
-    ctx.fillStyle = '#f8fafc';
-    ctx.font = 'bold 22px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText('¿Cuántos fantasmas?', CANVAS_WIDTH / 2, 100);
-
-    ctx.font = '600 14px system-ui, sans-serif';
-    ctx.fillText('Dificultad', CANVAS_WIDTH / 2, 152);
-    for (const b of this.difficultyButtons) {
-      const on = this.difficulty === b.id;
-      ctx.fillStyle = on ? '#22c55e' : '#334155';
-      ctx.beginPath();
-      ctx.roundRect(b.x, b.y, b.w, b.h, 8);
-      ctx.fill();
-      ctx.fillStyle = '#f8fafc';
-      ctx.font = '600 13px system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const label = DIFFICULTY_OPTIONS.find((o) => o.id === b.id)?.label ?? b.id;
-      ctx.fillText(label, b.x + b.w / 2, b.y + b.h / 2);
-    }
-
-    ctx.font = 'bold 22px system-ui, sans-serif';
-    ctx.textBaseline = 'top';
     for (const b of this.countButtons) {
       const on = this.ghostCount === b.n;
-      ctx.fillStyle = on ? '#38bdf8' : '#334155';
-      ctx.beginPath();
-      ctx.roundRect(b.x, b.y, b.w, b.h, 8);
-      ctx.fill();
-      ctx.fillStyle = '#f8fafc';
-      ctx.font = '700 18px system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(String(b.n), b.x + b.w / 2, b.y + b.h / 2);
+      drawButton(ctx, b, {
+        label: String(b.n),
+        color: PALETTE.accent,
+        variant: on ? 'solid' : 'muted',
+        selected: on,
+        fontSize: 26,
+      });
+    }
+
+    drawSubtitle(ctx, 'Dificultad', 228);
+    for (const b of this.difficultyButtons) {
+      const on = this.difficulty === b.id;
+      drawButton(ctx, b, {
+        label: DIFFICULTY_OPTIONS.find((o) => o.id === b.id)?.label ?? b.id,
+        color: PALETTE.primary,
+        variant: on ? 'solid' : 'muted',
+        selected: on,
+        fontSize: 19,
+      });
     }
 
     const candidates = protagonistId ? getGhostCandidates(protagonistId, this.allCharacters) : [];
     const ghostN = this.ghostCount ?? 0;
-    const rowY = 248;
-    const slot = (CANVAS_WIDTH - 64) / candidates.length;
+    const rowY = 372;
+    const slot = candidates.length > 0 ? (CANVAS_WIDTH - 56) / candidates.length : 0;
 
     candidates.forEach((ch, index) => {
       const img = this.getImage(ch.id);
       if (!img) return;
-      const cx = 32 + slot * (index + 0.5);
-      const cy = rowY;
-      const r = 52;
+      const cx = 28 + slot * (index + 0.5);
+      const r = 48;
       const active = isCharacterActiveAsGhost(index, ghostN);
+
       ctx.save();
-      ctx.filter = active ? 'none' : 'grayscale(1) brightness(0.7)';
-      const diameter = r * 2;
-      const scale = Math.max(diameter / img.naturalWidth, diameter / img.naturalHeight);
-      const dw = img.naturalWidth * scale;
-      const dh = img.naturalHeight * scale;
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
+      ctx.globalAlpha = active ? 1 : 0.32;
+      drawFaceBadge(ctx, ch.id, img, cx, rowY, r, ch.accentColor, {
+        ringWidth: active ? 6 : 3,
+        glow: active,
+      });
       ctx.restore();
-      ctx.filter = 'none';
-      ctx.strokeStyle = ch.accentColor;
-      ctx.lineWidth = active ? 4 : 2;
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.fillStyle = '#e2e8f0';
-      ctx.font = '600 13px system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(ch.name, cx, cy + r + 8);
+      drawCaption(ctx, ch.name, cx, rowY + r + 14, active ? PALETTE.text : PALETTE.textMuted);
     });
 
-    const bb = this.backButton;
-    ctx.fillStyle = '#475569';
-    ctx.beginPath();
-    ctx.roundRect(bb.x, bb.y, bb.w, bb.h, 10);
-    ctx.fill();
-    ctx.fillStyle = '#f8fafc';
-    ctx.font = '600 15px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('← Atrás', bb.x + bb.w / 2, bb.y + bb.h / 2);
-
-    const sb = this.startButton;
-    ctx.fillStyle = sb.enabled ? '#f97316' : '#475569';
-    ctx.beginPath();
-    ctx.roundRect(sb.x, sb.y, sb.w, sb.h, 10);
-    ctx.fill();
-    ctx.fillStyle = '#0f172a';
-    ctx.font = '600 15px system-ui, sans-serif';
-    ctx.fillText('¡Empezar! 🎮', sb.x + sb.w / 2, sb.y + sb.h / 2);
-
-    ctx.restore();
+    drawButton(ctx, this.backButton, {
+      label: '← Atrás',
+      variant: 'muted',
+      fontSize: 19,
+    });
+    drawButton(ctx, this.startButton, {
+      label: '¡Empezar! 🎮',
+      color: PALETTE.warm,
+      enabled: this.startButton.enabled,
+      fontSize: 21,
+    });
   }
 
   handleClick(x: number, y: number, protagonistId: string | null): void {
     if (!protagonistId) return;
     this.rebuildButtons();
     for (const b of this.difficultyButtons) {
-      if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+      if (hitTest(b, x, y)) {
         this.difficulty = b.id;
         return;
       }
     }
     for (const b of this.countButtons) {
-      if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+      if (hitTest(b, x, y)) {
         this.ghostCount = b.n;
         return;
       }
     }
-    const bb = this.backButton;
-    if (x >= bb.x && x <= bb.x + bb.w && y >= bb.y && y <= bb.y + bb.h) {
+    if (hitTest(this.backButton, x, y)) {
       this.onBack();
       return;
     }
-    const sb = this.startButton;
-    if (
-      sb.enabled &&
-      x >= sb.x &&
-      x <= sb.x + sb.w &&
-      y >= sb.y &&
-      y <= sb.y + sb.h &&
-      this.ghostCount !== null
-    ) {
+    if (this.startButton.enabled && hitTest(this.startButton, x, y) && this.ghostCount !== null) {
       this.onStart(this.ghostCount, this.difficulty);
     }
   }

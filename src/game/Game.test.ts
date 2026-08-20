@@ -67,18 +67,18 @@ describe('Game', () => {
     expect(game.currentScreen).toBe('pick-protagonist');
   });
 
-  it('setGhostCount guarda n��������mero', () => {
+  it('setGhostCount guarda número', () => {
     game.setGhostCount(2);
     expect(game.ghostCount).toBe(2);
   });
 
-  it('startGame sin config v��������lida lanza error', () => {
+  it('startGame sin config válida lanza error', () => {
     expect(() => game.startGame()).toThrow();
     game.setProtagonist('maria');
     expect(() => game.startGame()).toThrow();
   });
 
-  it('startGame con config v��������lida pasa a playing', () => {
+  it('startGame con config válida pasa a playing', () => {
     game.setProtagonist('maria');
     game.setGhostCount(2);
     game.startGame();
@@ -89,7 +89,7 @@ describe('Game', () => {
     expect(game.ghosts.length).toBe(2);
   });
 
-  it('endGame cambia a game-over y guarda raz��������n', () => {
+  it('endGame cambia a game-over y guarda razón', () => {
     game.setProtagonist('maria');
     game.setGhostCount(1);
     game.startGame();

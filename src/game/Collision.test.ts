@@ -4,7 +4,7 @@ import { CELL_SIZE } from '@/game/constants';
 import { checkProtagonistGhostCollision } from '@/game/Collision';
 
 describe('Collision', () => {
-  it('detecta superposici�n', () => {
+  it('detecta superposición', () => {
     const p = { pixelX: 100, pixelY: 100, data: { id: 'p' } };
     const g = { pixelX: 100, pixelY: 100, data: { id: 'g1' } };
     expect(checkProtagonistGhostCollision(p, [g], CELL_SIZE)?.data.id).toBe('g1');

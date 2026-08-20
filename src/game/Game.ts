@@ -5,7 +5,7 @@ import {
   saveProtagonistId,
   updateHighScoreIfNeeded,
 } from '@/data/storage';
-import { Keyboard } from '@/input/Keyboard';
+import { PlayerInput } from '@/input/PlayerInput';
 import { CharacterPicker } from '@/ui/CharacterPicker';
 import { GameOverScreen } from '@/ui/GameOver';
 import { getGhostCandidates, GhostCountPicker } from '@/ui/GhostCountPicker';
@@ -21,8 +21,9 @@ import {
 } from '@/game/difficulty';
 import type { GridMap } from '@/game/GridMap';
 import { PlaySession, type GhostEntity, type PlayerEntity } from '@/game/PlaySession';
-import { drawCharacterFace } from '@/game/renderEntity';
+import { drawGhost, drawHero } from '@/game/renderEntity';
 import { Score } from '@/game/Score';
+import type { CanvasViewport } from '@/game/viewport';
 
 export type GameScreen = 'pick-protagonist' | 'pick-ghost-count' | 'playing' | 'game-over';
 
@@ -40,7 +41,7 @@ export class Game {
   readonly score = new Score();
   highScore = 0;
 
-  readonly keyboard = new Keyboard();
+  readonly input = new PlayerInput();
   readonly hud = new HUD();
   readonly gameOverScreen = new GameOverScreen();
 
@@ -54,7 +55,8 @@ export class Game {
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
-    private readonly ctx: CanvasRenderingContext2D
+    private readonly ctx: CanvasRenderingContext2D,
+    private readonly viewport?: CanvasViewport
   ) {
     const prefs = loadPrefs();
     this.highScore = prefs.highScore;
@@ -86,7 +88,20 @@ export class Game {
       this.ghostPicker.restoreCount(prefs.ghostCount);
     }
 
-    this.keyboard.attach();
+    this.input.attach();
+  }
+
+  /** Atajo de compatibilidad: la fuente de teclado dentro de la entrada unificada. */
+  get keyboard(): PlayerInput['keyboard'] {
+    return this.input.keyboard;
+  }
+
+  /** Conecta deslizamiento sobre el tablero y cruceta en pantalla. */
+  attachTouchControls(swipeTarget: HTMLElement, dpad?: HTMLElement): void {
+    this.input.touch.attachSwipe(swipeTarget);
+    if (dpad) {
+      this.input.touch.attachDpad(dpad);
+    }
   }
 
   /** Compatibilidad con tests: laberinto activo. */
@@ -107,7 +122,7 @@ export class Game {
   destroy(): void {
     this.stopLoop();
     this.stopGameplayIntervals();
-    this.keyboard.detach();
+    this.input.detach();
   }
 
   registerImage(id: string, img: HTMLImageElement): void {
@@ -172,7 +187,7 @@ export class Game {
       return;
     }
 
-    const dir = this.keyboard.getDesiredDirection();
+    const dir = this.input.getDesiredDirection();
     this.playSession.setPlayerIntent(dir);
     this.playSession.tickPlayer();
     this.playSession.checkCollisionsAfterPlayer();
@@ -242,8 +257,11 @@ export class Game {
   }
 
   startLoop(): void {
-    const loop = (): void => {
-      this.render();
+    const loop = (timeMs: number): void => {
+      // Reajustar en cada frame cubre los casos que los observadores de
+      // tamaño no notifican (barra del navegador móvil, cambio de zoom).
+      this.viewport?.resize();
+      this.render(timeMs);
       this.rafId = requestAnimationFrame(loop);
     };
     this.rafId = requestAnimationFrame(loop);
@@ -256,8 +274,9 @@ export class Game {
     }
   }
 
-  render(): void {
+  render(timeMs = 0): void {
     const { ctx } = this;
+    this.viewport?.applyTransform(ctx);
     ctx.fillStyle = '#020617';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
@@ -281,9 +300,31 @@ export class Game {
         getImage: (id) => this.getImage(id),
       });
       session.gridMap.draw(ctx);
-      drawCharacterFace(ctx, session.player.image, session.player.col, session.player.row, session.player.data.accentColor);
+      drawHero(
+        ctx,
+        {
+          id: session.player.data.id,
+          image: session.player.image,
+          col: session.player.col,
+          row: session.player.row,
+          direction: session.player.direction,
+          accentColor: session.player.data.accentColor,
+        },
+        timeMs
+      );
       for (const g of session.ghosts) {
-        drawCharacterFace(ctx, g.image, g.col, g.row, g.data.accentColor);
+        drawGhost(
+          ctx,
+          {
+            id: g.data.id,
+            image: g.image,
+            col: g.col,
+            row: g.row,
+            direction: g.direction,
+            accentColor: g.data.accentColor,
+          },
+          timeMs
+        );
       }
       return;
     }

@@ -26,7 +26,7 @@ describe('Protagonist', () => {
     expect(score).toBe(PELLET_VALUE);
   });
 
-  it('aplica direcci�n deseada v�lida', () => {
+  it('aplica dirección deseada válida', () => {
     const maze = { isWalkable: () => true, eatPellet: () => false } as unknown as Maze;
     const p = new Protagonist(stubData, stubImg, 5, 5, PROTAGONIST_SPEED, () => {});
     p.snapToCell(5, 5);

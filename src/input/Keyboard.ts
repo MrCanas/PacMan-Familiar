@@ -1,4 +1,5 @@
 import type { Direction } from '@/entities/direction';
+import { nextInputSequence } from '@/input/sequence';
 
 const codeToDir = (code: string): Direction | null => {
   switch (code) {
@@ -40,15 +41,21 @@ const keyToDir = (key: string): Direction | null => {
 
 export class Keyboard {
   private desired: Direction | null = null;
+  private updatedAt = 0;
   private attached = false;
 
   private readonly handleKeyDown = (e: KeyboardEvent): void => {
     const dir = codeToDir(e.code) ?? keyToDir(e.key);
     if (dir) {
       e.preventDefault();
-      this.desired = dir;
+      this.set(dir);
     }
   };
+
+  private set(direction: Direction): void {
+    this.desired = direction;
+    this.updatedAt = nextInputSequence();
+  }
 
   attach(): void {
     if (this.attached) {
@@ -71,8 +78,18 @@ export class Keyboard {
     return this.desired;
   }
 
+  /** Orden relativo del último cambio, para arbitrar con otras entradas. */
+  getUpdatedAt(): number {
+    return this.updatedAt;
+  }
+
   /** Expuesto para tests: simula tecla sin listener. */
   simulateKey(key: string): void {
-    this.desired = codeToDir(key) ?? keyToDir(key);
+    const dir = codeToDir(key) ?? keyToDir(key);
+    if (dir) {
+      this.set(dir);
+      return;
+    }
+    this.desired = null;
   }
 }
